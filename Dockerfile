@@ -21,8 +21,8 @@ COPY packages/cli/tsconfig.json packages/cli/tsconfig.json
 COPY packages/cli/src packages/cli/src
 COPY packages/cli/bundle.mjs packages/cli/bundle.mjs
 
-RUN pnpm --filter @slack-cards/core build
-RUN pnpm --filter @slack-cards/cli build
+RUN pnpm --filter @slackwire/core build
+RUN pnpm --filter slackwire build
 
 
 FROM gcr.io/distroless/nodejs20-debian12

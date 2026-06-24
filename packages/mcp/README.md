@@ -1,35 +1,50 @@
-# @slack-cards/mcp
+# @slackwire/mcp
 
-Model Context Protocol (MCP) server front-end for the Slack Card Engine. Exposes Slack posting, updating, reacting, uploading, and name-resolution as MCP tools consumed by AI agents. Communicates over stdio using the standard MCP SDK transport.
+A Model Context Protocol (MCP) server over [`@slackwire/core`](../core/README.md). It exposes the same Slack operations the CLI uses (post, morph, react, upload, resolve names) as MCP tools, so an MCP-capable assistant can drive Slack through tool calls instead of a shell. The package is a library: it provides `createMcpServer(slackClient, resolver)`, and you supply the transport (typically stdio).
+
+Version 0.1.0. Requires Node.js 20 or newer.
 
 ## Install
 
 ```sh
-pnpm add @slack-cards/mcp
+pnpm add @slackwire/mcp
 ```
 
-## Minimal usage
+## Running it
+
+Construct a `SlackClient` and `Resolver` from `@slackwire/core`, create the server, and connect a transport. The server runs until the transport closes. Diagnostic logs go to stderr, prefixed `[slackwire-mcp]`.
 
 ```ts
-import { createMcpServer } from '@slack-cards/mcp';
-import { SlackClient, Resolver, DiskCache } from '@slack-cards/core';
+import { createMcpServer } from '@slackwire/mcp';
+import { SlackClient, Resolver } from '@slackwire/core';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
 const client = new SlackClient(process.env.SLACK_TOKEN!);
-const cache = new DiskCache('.cache', 3600);
-const resolver = new Resolver(client['web'], cache, process.env.SLACK_TEAM_ID!);
+const resolver = new Resolver(/* web client */, /* cache */, process.env.SLACK_TEAM_ID ?? 'T000');
 
 const server = createMcpServer(client, resolver);
 await server.connect(new StdioServerTransport());
 ```
 
-The server runs until the transport closes. All diagnostic logs go to `stderr` prefixed with `[slack-cards-mcp]`.
+Wire it into an MCP host that launches your stdio entry point:
+
+```json
+{
+  "mcpServers": {
+    "slackwire": {
+      "command": "node",
+      "args": ["path/to/your-mcp-entry.js"],
+      "env": { "SLACK_TOKEN": "xoxb-...", "SLACK_TEAM_ID": "T0XXXXXXXXX" }
+    }
+  }
+}
+```
 
 ## Public API surface
 
 ### `createMcpServer(slackClient, resolver): McpServerHandle`
 
-Creates and configures the MCP server instance. Does not start listening until `connect()` is called.
+Creates and configures the server. It does not listen until `connect()` is called.
 
 ```ts
 interface McpServerHandle {
@@ -38,49 +53,25 @@ interface McpServerHandle {
 }
 ```
 
-## MCP tools
+## Tools exposed
 
 | Tool | Required inputs | Optional inputs | Returns |
 |---|---|---|---|
 | `post_card` | `channel`, `blocks` (JSON string) | `text` | `{ ts, channel, permalink }` |
 | `update_card` | `channel`, `ts`, `blocks` (JSON string) | `text` | `{ ts, channel }` |
-| `post` | `channel`, `text` | - | `{ ts, channel }` |
-| `react` | `channel`, `ts`, `name` | - | `"ok"` |
-| `upload` | `channel`, `filename`, `content` | - | `"ok"` |
-| `resolve` | `name`, `type` (`"channel"` or `"user"`) | - | `{ name, type, id }` |
+| `post` | `channel`, `text` | (none) | `{ ts, channel }` |
+| `react` | `channel`, `ts`, `name` | (none) | `"ok"` |
+| `upload` | `channel`, `filename`, `content` | (none) | `"ok"` |
+| `resolve` | `name`, `type` (`"channel"` or `"user"`) | (none) | `{ name, type, id }` |
 
-All `channel` inputs accept either a channel name or a Slack channel ID. Names are resolved to IDs via the injected `Resolver` before each API call.
-
-`blocks` is passed as a JSON-encoded string so the MCP schema stays `type: string` and avoids nesting issues with arbitrary block shapes.
-
-`post_card` and `update_card` return a `permalink` of the form `https://slack.com/archives/<channel>/p<ts>`.
-
-`resolve` returns `{ id: null }` when the name cannot be resolved.
-
-## Transport
-
-The server uses stdio transport. Wire it up in your MCP host config:
-
-```json
-{
-  "mcpServers": {
-    "slack-cards": {
-      "command": "node",
-      "args": ["path/to/mcp-entry.js"],
-      "env": {
-        "SLACK_TOKEN": "xoxb-...",
-        "SLACK_TEAM_ID": "T12345"
-      }
-    }
-  }
-}
-```
+Every `channel` input accepts a channel name or a Slack ID; names are resolved to an ID via the injected `Resolver` before each call. `blocks` is passed as a JSON-encoded string so the tool schema stays `type: string` and avoids nesting issues with arbitrary block shapes. `post_card` returns a permalink of the form `https://slack.com/archives/<channel>/p<ts>`. `react` expects the emoji `name` without colons. `resolve` returns `id: null` when the name cannot be resolved.
 
 ## Limits and gotchas
 
-- **`blocks` must be a valid JSON string** when calling `post_card` or `update_card`. Passing a non-JSON value throws at parse time inside the tool handler.
-- **Channel name resolution** delegates to the `Resolver` instance you inject. The resolver caches results using the `DiskCache` you provide; TTL is caller-controlled.
-- **No template rendering** in the MCP server itself. Render with `@slack-cards/core`'s `render()` function first, then pass the resulting blocks to `post_card`.
-- **All Slack hard limits** (50 blocks, 3000-char sections, 38 000-char soft total) are enforced by `@slack-cards/core` when you call `render()`. The MCP tools forward blocks as-is and do not re-validate.
-- Errors thrown inside tool handlers propagate as MCP error responses to the calling agent.
-- Attribution footer is **off by default**. Pass `attribution: true` to `render()` in `@slack-cards/core` before handing blocks to the MCP server.
+- `blocks` must be a valid JSON string for `post_card` and `update_card`; a non-JSON value throws inside the handler and propagates as an MCP error response.
+- The MCP server does no template rendering and no re-validation. Render and limit-check with `@slackwire/core`'s `render()` (or `validateStructural` / `validateLimits`) first, then pass the resulting blocks to `post_card` / `update_card`. The tools forward blocks as-is.
+- Name resolution and its caching are entirely the responsibility of the `Resolver` you inject.
+- The accent / attribution footer is off by default and is a render-time concern in `@slackwire/core`, not something these tools add.
+- Errors thrown inside a tool handler surface to the calling agent as MCP error responses.
+
+See the [root README](../../README.md) for the overall project.

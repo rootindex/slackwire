@@ -757,6 +757,102 @@ describe('CLI', () => {
     expect(io.out[0]).toContain('uploaded');
   });
 
+  it('prints assembled JSON and posts nothing under post --dry-run', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slackwire/core');
+
+    const mockPost = vi.fn();
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--text', 'hi',
+      '--dry-run',
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockPost).not.toHaveBeenCalled();
+    const parsed = JSON.parse(io.out.join('\n')) as { text: string };
+    expect(parsed.text).toBe('hi');
+  });
+
+  it('does not require a token under post --dry-run', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slackwire/core');
+
+    const mockPost = vi.fn();
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const out: string[] = [];
+    const err: string[] = [];
+    const io: RunIO & { out: string[]; err: string[] } = {
+      out, err,
+      stdout: (line: string) => { out.push(line); },
+      stderr: (line: string) => { err.push(line); },
+      env: {},
+    };
+
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--text', 'hi',
+      '--dry-run',
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockPost).not.toHaveBeenCalled();
+    const parsed = JSON.parse(out.join('\n')) as { text: string };
+    expect(parsed.text).toBe('hi');
+  });
+
+  it('prints assembled JSON and calls no API under update --dry-run', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slackwire/core');
+
+    const mockUpdate = vi.fn();
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: vi.fn(),
+      update: mockUpdate,
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'update',
+      '--channel', 'C123',
+      '--ts', '1234567890.123456',
+      '--text', 'updated hi',
+      '--dry-run',
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockUpdate).not.toHaveBeenCalled();
+    const parsed = JSON.parse(io.out.join('\n')) as { text: string };
+    expect(parsed.text).toBe('updated hi');
+  });
+
   it('resolves a channel name to id before posting', async () => {
     const { run } = await import('./run.js');
     const { SlackClient, Resolver } = await import('@slackwire/core');

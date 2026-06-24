@@ -418,6 +418,16 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
       return source.code;
     }
 
+    if (dryRun) {
+      const dryOut: { blocks?: unknown[]; text: string; attachments?: unknown[] } = { text: source.kind === 'text' ? source.text : source.text };
+      if (source.kind !== 'text') {
+        dryOut.blocks = source.blocks as unknown[];
+        if ((source.attachments as unknown[]).length > 0) dryOut.attachments = source.attachments as unknown[];
+      }
+      io.stdout(JSON.stringify(dryOut, null, 2));
+      return 0;
+    }
+
     return execWithFailMode(async () => {
       const client = new SlackClient(realToken);
       const channel = await resolveChannel(client, channelArg);
@@ -451,6 +461,19 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
     }
 
     const source = await resolveMessageSource();
+
+    if (dryRun) {
+      const dryOut: { blocks?: unknown[]; text?: string; attachments?: unknown[] } = {};
+      if (source.kind !== 'error') {
+        dryOut.text = source.text;
+        if (source.kind !== 'text') {
+          dryOut.blocks = source.blocks as unknown[];
+          if ((source.attachments as unknown[]).length > 0) dryOut.attachments = source.attachments as unknown[];
+        }
+      }
+      io.stdout(JSON.stringify(dryOut, null, 2));
+      return 0;
+    }
 
     return execWithFailMode(async () => {
       const client = new SlackClient(realToken);

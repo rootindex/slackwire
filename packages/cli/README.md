@@ -1,98 +1,108 @@
-# @slack-cards/cli
+# slackwire (CLI)
 
-Command-line front-end for the Slack Card Engine. Renders templates from a local catalog and posts or updates Slack messages. Ships as a self-contained CJS bundle (`dist/bundle.cjs`) so it runs without installing workspace dependencies.
+The `slackwire` command-line tool: send, update, delete, react to, and upload Slack messages from a terminal or a CI job. It wraps [`@slackwire/core`](../core/README.md), adding argument parsing, token resolution, channel-name resolution, render-from-template, and a CI-friendly exit-code and fail-mode contract. This is the published headline package (unscoped name `slackwire`, bin `slackwire`). It ships as a self-contained CJS bundle (`dist/bundle.cjs`) so it runs without installing workspace dependencies.
+
+Version 0.1.0. Requires Node.js 20 or newer.
 
 ## Install
 
 ```sh
-pnpm add @slack-cards/cli
-# or use the binary directly after build
-node dist/bundle.cjs <verb> [options]
+npm install -g slackwire    # then: slackwire <verb> [options]
+npx slackwire <verb> [options]
+node packages/cli/dist/bundle.cjs <verb> [options]   # bundled single-file binary
+docker build -t slackwire:dev . && docker run --rm -e SLACK_TOKEN slackwire:dev <verb>
 ```
-
-Binary name after install: `slack-cards`
 
 ## Minimal usage
 
 ```sh
-# Render and post a template
-SLACK_TOKEN=xoxb-... \
-  slack-cards card \
-  --template incident@1.0.0 \
-  --data '{"title":"DB spike","severity":"P1","accent":"#cc0000","incident_id":"INC-1","service":"api","runbook_url":"https://runbook/","assigned_to":"alice"}' \
-  --channel C12345
-
-# Dry-run: print rendered JSON without posting
-slack-cards card --template ci-cd@1.0.0 --data '{...}' --dry-run
-
-# Update an existing message
-SLACK_TOKEN=xoxb-... \
-  slack-cards update \
-  --channel C12345 \
-  --ts 1717000000.123456 \
-  --template incident@1.0.0 \
-  --data '{...}'
+export SLACK_TOKEN=xoxb-...
+slackwire post --channel C0XXXXXXXXX --text "hello from slackwire"
 ```
+
+`post`, `update`, and `card` print `<ts>\t<permalink>` on success. `delete`, `react`, and `upload` print a short confirmation line.
 
 ## Verbs
 
-| Verb | Required flags | Description |
-|---|---|---|
-| `card` | `--template`, `--channel` (unless `--dry-run`) | Render a template and post it |
-| `update` | `--channel`, `--ts` | Update an existing message; optionally re-render with `--template` and `--data` |
+```
+post    --channel <c> (--template <n@v> | --blocks <json>|-  | --text <t>)
+update  --channel <c> --ts <ts> (--template | --blocks | --text)
+delete  --channel <c> --ts <ts>
+react   --channel <c> --ts <ts> --emoji <name>
+upload  --channel <c> --file <path> [--title <t>] [--comment <c>]
+card    --template <name@ver> --channel <c> [--data <json>]   (alias for post --template)
+```
 
-No other verbs are implemented. Unknown verbs exit with code `2`.
+Running `slackwire` with no verb prints usage and exits 2. An unknown verb also exits 2.
 
-## Options
+For `post` and `update`, the body comes from exactly one of three sources:
 
-| Flag | Type | Description |
-|---|---|---|
-| `--template` | `name@version` | Template name and version (version defaults to `1.0.0`) |
-| `--data` | JSON string | Payload object for interpolation |
-| `--channel` | string | Channel name or ID (names are resolved via the Slack API) |
-| `--ts` | string | Message timestamp (required for `update`) |
-| `--dry-run` | boolean | Print rendered blocks to stdout; skip posting |
-| `--fail-mode` | `block` or `non-blocking` | Default `non-blocking`: Slack/network errors print a warning and exit 0. `block`: errors exit with a non-zero code |
-| `--catalog` | path | Override the template catalog directory (default: `$SLACK_CATALOG` or `./templates`) |
-| `--version` | string | Parsed but unused; reserved |
+- `--template <name@ver>` with optional `--data <json>` and `--catalog <path>`. Version defaults to `1.0.0`.
+- `--blocks '<json>'`: a JSON array of blocks, or `{ "blocks": [...], "attachments": [...], "text": "..." }`. `--blocks -` reads the JSON from stdin. Structural and limit validation runs before sending, and fallback text is auto-derived from the blocks when `--text` is absent.
+- `--text "<plain>"`.
 
-## Environment variables
+For `update`, the body sources are optional: `update --channel --ts` with no body still issues a `chat.update` call.
 
-| Variable | Description |
+## Flags
+
+| Flag | Meaning |
 |---|---|
-| `SLACK_TOKEN` | Bot or user token (plain text) |
-| `SLACK_TOKEN_BASE64` | Token base64-encoded (decoded at runtime) |
-| `SLACK_ATTRIBUTION` | Set to `true` to enable attribution footer |
-| `SLACK_TEAM_ID` | Team ID used for channel name resolution cache (defaults to `T000`) |
-| `SLACK_CATALOG` | Fallback catalog path when `--catalog` is not set |
+| `--channel <c>` | Channel ID (`C0XXXXXXXXX`, `G...`, `D...`) or channel name (resolved to an ID via the Slack API). |
+| `--ts <ts>` | Message timestamp, for `update` / `delete` / `react`. |
+| `--template <name@ver>` | Template to render. Version defaults to `1.0.0`. |
+| `--data <json>` | JSON payload for the template. Invalid JSON exits 2. |
+| `--blocks <json>` or `--blocks -` | Raw Block Kit. `-` reads stdin. |
+| `--text <t>` | Plain message text, or fallback text alongside `--blocks`. |
+| `--emoji <name>` | Reaction emoji name, without colons. |
+| `--file <path>` | File to upload. |
+| `--title <t>` / `--comment <c>` | File title and initial comment for `upload`. |
+| `--catalog <path>` | Template catalog directory. Overrides `SLACK_CATALOG` (default `./templates`). |
+| `--theme <#rrggbb>` | Accent color. Needs `SLACK_ATTRIBUTION=true` to render the colored bar. |
+| `--dry-run` | Render the message from `--template` / `--blocks` / `--text` and print the assembled JSON (`{blocks, text, attachments?}`) to stdout. Works on `post`, `update`, and `card`. No token required, no Slack API call. |
+| `--fail-mode <non-blocking\|block>` | Failure behavior. Defaults to `non-blocking`. |
 
-## Exit-code contract
+## Environment
 
-| Code | Meaning |
+| Variable | Purpose |
 |---|---|
-| `0` | Success (or non-blocking Slack/network warning) |
-| `2` | Validation failure (`SchemaError`, `StructuralError`, `LimitError`), missing required flag, bad JSON in `--data`, or unknown verb |
-| `3` | Slack API error (only in `--fail-mode block`) |
-| `4` | Network error (only in `--fail-mode block`) |
-| `5` | Rate limit error (only in `--fail-mode block`) |
-| `1` | Unexpected/unknown error (only in `--fail-mode block`) |
+| `SLACK_TOKEN` | Token, highest precedence. |
+| `SLACK_TOKEN_BASE64` | Base64-encoded token, used if `SLACK_TOKEN` is unset. |
+| `SLACK_TOKEN_FILE` | Path to a token file, used if the two above are unset (Docker-secret pattern). |
+| `SLACK_ATTRIBUTION` | `true` to render the legacy colored accent bar. Off by default. |
+| `SLACK_CATALOG` | Template catalog directory. Default `./templates`. |
+| `SLACK_TEAM_ID` | Team ID used for channel/user name resolution. Default `T000`. |
+| `HTTPS_PROXY` / `NO_PROXY` | Proxy passthrough for egress-restricted runners. |
 
-Validation errors (code `2`) always block regardless of `--fail-mode`.
+Token precedence is `SLACK_TOKEN` -> `SLACK_TOKEN_BASE64` -> `SLACK_TOKEN_FILE`. Bot (`xoxb-`) and user (`xoxp-`) tokens both work. Tokens come from the environment only, never argv, are never logged, and are redacted from error output.
 
 ## stdout format
 
-On success, `card` and `update` print one tab-separated line:
+On success, `post`, `update`, and `card` print one tab-separated line:
 
 ```
-<ts>\t<permalink>
+<ts>	<permalink>
 ```
 
-`--dry-run` prints the rendered payload as pretty JSON to stdout.
+`delete` prints `deleted\t<ts>`, `react` prints `reacted\t<emoji>`, `upload` prints `uploaded\t<path>`. With `--dry-run`, `post`, `update`, and `card` print the assembled message as pretty-printed JSON instead.
+
+## Exit codes and fail mode
+
+| Code | Meaning |
+|---|---|
+| 0 | Success (or a non-blocking Slack / network / rate-limit warning). |
+| 2 | Validation error: bad input, missing required flag, invalid `--data` / `--blocks` JSON, schema / structural / limit error, missing token, or unknown verb. |
+| 3 | Slack API error (in `--fail-mode block`). |
+| 4 | Network or timeout error (in `--fail-mode block`). |
+| 5 | Rate-limited and gave up (in `--fail-mode block`). |
+
+`--fail-mode non-blocking` (default) turns Slack, network, and rate-limit failures into a stderr warning and exit 0, so a notification step never breaks a pipeline. `--fail-mode block` propagates the non-zero code. Validation errors always exit 2 regardless of fail mode.
 
 ## Limits and gotchas
 
-- **Token is required** unless `--dry-run` is set; missing token exits with code `2`.
-- **Channel name resolution** uses a noop (non-persisting) cache. If the channel name cannot be resolved, the raw name string is passed to the API unchanged.
-- Validation errors (schema, structural, limit) **always** exit `2` even with `--fail-mode non-blocking`.
-- `SLACK_TOKEN_BASE64` takes precedence over `SLACK_TOKEN` when both are set.
-- The Slack hard limits enforced by `@slack-cards/core` apply: 50 blocks, 3000-char sections, 38 000-char soft total.
+- A missing token exits 2 unless `--dry-run` is set. Channel name resolution uses a non-persisting (noop) cache in the CLI; if a name cannot be resolved, the raw string is passed to the API unchanged.
+- Slack hard limits enforced before sending: 50 blocks, section text 3000 chars, header 150, button label 75, image blocks require `alt_text`. Violations exit 2.
+- The colored bar rides on a legacy attachment, so Slack may show an "Added by &lt;app&gt;" footer. A native Alert block is the planned footer-free path.
+- `attachments[].blocks` are not structurally validated; only top-level blocks are checked.
+- The Docker image bundles only the CLI, not the `templates/` catalog. Mount your catalog and set `SLACK_CATALOG` (or `--catalog`) to use templates in a container.
+
+See the [root README](../../README.md) for full examples and the [CI/GitLab guide](../../docs/gitlab-integration.md).
