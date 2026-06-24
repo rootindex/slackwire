@@ -1,0 +1,15 @@
+{
+  "accent": "color",
+  "error_type": "text_plain",
+  "error_message": "text_mrkdwn",
+  "project": "text_plain",
+  "environment": "text_plain",
+  "events_count": "text_plain",
+  "users_affected": "text_plain",
+  "level": "text_plain",
+  "first_seen": "text_plain",
+  "stack_trace": "code_block",
+  "culprit": "text_mrkdwn",
+  "sentry_url": "link_url",
+  "assign_url": "link_url"
+}

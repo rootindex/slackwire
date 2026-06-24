@@ -1,0 +1,7 @@
+{
+  "name": "deploy-approval",
+  "version": "1.0.0",
+  "description": "Deploy approval card: release summary, change list, deadline, and approve/reject/diff actions",
+  "overflow": "fail",
+  "states": ["pending"]
+}

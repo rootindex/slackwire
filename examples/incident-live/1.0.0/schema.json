@@ -1,0 +1,16 @@
+{
+  "severity_emoji": "text_plain",
+  "title": "text_plain",
+  "accent": "color",
+  "incident_id": "text_plain",
+  "service": "text_plain",
+  "severity": "text_plain",
+  "status": "text_plain",
+  "on_call": "text_mrkdwn",
+  "started": "text_plain",
+  "impact": "text_mrkdwn",
+  "source": "text_plain",
+  "runbook_url": "link_url",
+  "dashboard_url": "link_url",
+  "statuspage_url": "link_url"
+}

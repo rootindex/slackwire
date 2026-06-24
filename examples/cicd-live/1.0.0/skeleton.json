@@ -1,0 +1,53 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "CI/CD Pipeline {{text_plain:status}}",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Repository*\n`{{text_plain:repo}}`" },
+        { "type": "mrkdwn", "text": "*Branch*\n`{{text_plain:branch}}`" },
+        { "type": "mrkdwn", "text": "*Commit*\n`{{text_plain:commit}}`" },
+        { "type": "mrkdwn", "text": "*Triggered by*\n{{text_mrkdwn:triggered_by}}" }
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Stages*\n{{text_mrkdwn:stage_checklist}}\n\n*Progress*\n{{text_plain:progress_bar}}  {{text_plain:progress_text}}"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Runner: {{text_plain:runner}}  |  Updated <!date^1750000000^{date_short_pretty} at {time}|2025-06-15>"
+        }
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "View pipeline", "emoji": true },
+          "url": "{{link_url:pipeline_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Logs", "emoji": true },
+          "url": "{{link_url:logs_url}}"
+        }
+      ]
+    }
+  ]
+}

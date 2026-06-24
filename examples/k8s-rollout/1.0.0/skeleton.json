@@ -1,0 +1,59 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "🚀 {{text_plain:title}}",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Status:* {{text_plain:status}}"
+      },
+      "fields": [
+        { "type": "mrkdwn", "text": "*Cluster*\n`{{text_plain:cluster}}`" },
+        { "type": "mrkdwn", "text": "*Namespace*\n`{{text_plain:namespace}}`" },
+        { "type": "mrkdwn", "text": "*Deployment*\n`{{text_plain:deployment}}`" },
+        { "type": "mrkdwn", "text": "*Image tag*\n`{{text_plain:image_tag}}`" },
+        { "type": "mrkdwn", "text": "*Replicas*\n{{text_plain:replicas}}" },
+        { "type": "mrkdwn", "text": "*Canary weight*\n*{{text_plain:weight}}*" }
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Canary progress* {{text_plain:weight}}\n{{text_mrkdwn:progress_bar}}\n🟢 Healthy pods: *{{text_plain:healthy_pods}}* / {{text_plain:total_pods}}"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Updated <!date^1750723200^{date_short_pretty} at {time}|just now> · canary controller"
+        }
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "📊 Grafana", "emoji": true },
+          "url": "{{link_url:grafana_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "🐙 Argo", "emoji": true },
+          "url": "{{link_url:argo_url}}"
+        }
+      ]
+    }
+  ]
+}

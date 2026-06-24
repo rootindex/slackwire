@@ -1,0 +1,66 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "{{text_plain:header_title}}",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Repository*\n`{{text_plain:repo}}`" },
+        { "type": "mrkdwn", "text": "*Pull Request*\n#{{text_plain:pr_number}}" },
+        { "type": "mrkdwn", "text": "*Title*\n{{code:pr_title}}" },
+        { "type": "mrkdwn", "text": "*Author*\n{{text_mrkdwn:author}}" },
+        { "type": "mrkdwn", "text": "*Changes*\n+{{text_plain:additions}} / -{{text_plain:deletions}}" },
+        { "type": "mrkdwn", "text": "*Branch*\n`{{text_plain:branch}}`" }
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Checks*\n{{text_mrkdwn:check_lint}} Lint\n{{text_mrkdwn:check_test}} Test\n{{text_mrkdwn:check_build}} Build\n{{text_mrkdwn:check_coverage}} Coverage"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "image",
+          "image_url": "{{image_url:reviewer_avatar}}",
+          "alt_text": "{{text_plain:reviewer_avatar_alt}}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "Reviewer: {{text_mrkdwn:reviewer}} · Opened {{code:opened_at}}"
+        }
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Review", "emoji": true },
+          "style": "primary",
+          "url": "{{link_url:review_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Files changed", "emoji": true },
+          "url": "{{link_url:files_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "CI", "emoji": true },
+          "url": "{{link_url:ci_url}}"
+        }
+      ]
+    }
+  ]
+}

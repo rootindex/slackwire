@@ -1,0 +1,7 @@
+{
+  "name": "k8s-rollout",
+  "version": "1.0.0",
+  "description": "Kubernetes canary rollout live card with morph states (10/50/100 canary weight)",
+  "overflow": "fail",
+  "states": ["canary-10", "canary-50", "promoted-100"]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "sentry-error",
+  "version": "1.0.0",
+  "description": "Rich Sentry error alert card with stack trace, metadata grid, and triage actions",
+  "overflow": "fail",
+  "states": ["unresolved"]
+}

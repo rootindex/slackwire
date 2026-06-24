@@ -1,0 +1,43 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "{{text_plain:title}}"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        {
+          "type": "mrkdwn",
+          "text": "*Severity:* {{text_plain:severity}}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Incident ID:* {{text_plain:incident_id}}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Service:* {{text_plain:service}}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Assigned to:* {{text_plain:assigned_to}}"
+        }
+      ]
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "View Runbook" },
+          "url": "{{link_url:runbook_url}}"
+        }
+      ]
+    },
+    { "$use": "footer" }
+  ]
+}

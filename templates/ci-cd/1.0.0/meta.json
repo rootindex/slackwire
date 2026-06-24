@@ -1,0 +1,7 @@
+{
+  "name": "ci-cd",
+  "version": "1.0.0",
+  "description": "CI/CD pipeline live card with morph states (running/passed/failed)",
+  "overflow": "fail",
+  "states": ["running", "passed", "failed"]
+}

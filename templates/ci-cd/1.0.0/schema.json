@@ -1,0 +1,18 @@
+{
+  "title": "text_plain",
+  "ref": "text_plain",
+  "short_sha": "text_plain",
+  "description": "text_mrkdwn",
+  "author": "text_mrkdwn",
+  "icon_url": "image_url",
+  "icon_alt": "text_plain",
+  "steps_text": "text_mrkdwn",
+  "progress_bar": "text_mrkdwn",
+  "runner": "text_plain",
+  "test_count": "text_plain",
+  "coverage": "text_plain",
+  "finished_at": "date",
+  "primary_label": "text_plain",
+  "primary_url": "link_url",
+  "logs_url": "link_url"
+}

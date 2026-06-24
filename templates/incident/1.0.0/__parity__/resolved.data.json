@@ -1,0 +1,9 @@
+{
+  "title": "✅ INC-001 · payments-api · RESOLVED",
+  "severity": "RESOLVED",
+  "accent": "#2eb67d",
+  "incident_id": "INC-001",
+  "service": "payments-api",
+  "runbook_url": "https://example.com/runbooks/db-pool",
+  "assigned_to": "on-call-team"
+}

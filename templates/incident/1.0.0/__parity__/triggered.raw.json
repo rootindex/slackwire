@@ -1,0 +1,61 @@
+{
+  "blocks": [],
+  "attachments": [
+    {
+      "color": "#e01e5a",
+      "blocks": [
+        {
+          "type": "header",
+          "text": {
+            "type": "plain_text",
+            "text": "🚨 INC-001 · payments-api · TRIGGERED"
+          }
+        },
+        {
+          "type": "section",
+          "fields": [
+            {
+              "type": "mrkdwn",
+              "text": "*Severity:* TRIGGERED"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Incident ID:* INC-001"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Service:* payments-api"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Assigned to:* on-call-team"
+            }
+          ]
+        },
+        {
+          "type": "actions",
+          "elements": [
+            {
+              "type": "button",
+              "text": {
+                "type": "plain_text",
+                "text": "View Runbook"
+              },
+              "url": "https://example.com/runbooks/db-pool"
+            }
+          ]
+        },
+        {
+          "type": "context",
+          "elements": [
+            {
+              "type": "mrkdwn",
+              "text": "Slack Card Engine"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "text": "🚨 INC-001 · payments-api · TRIGGERED Severity: TRIGGERED Incident ID: INC-001 Service: payments-api Assigned to: on-call-team"
+}

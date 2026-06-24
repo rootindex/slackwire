@@ -1,0 +1,16 @@
+{
+  "title": "text_plain",
+  "status": "text_plain",
+  "accent": "color",
+  "cluster": "text_plain",
+  "namespace": "text_plain",
+  "deployment": "text_plain",
+  "image_tag": "text_plain",
+  "replicas": "text_plain",
+  "weight": "text_plain",
+  "progress_bar": "text_mrkdwn",
+  "healthy_pods": "text_plain",
+  "total_pods": "text_plain",
+  "grafana_url": "link_url",
+  "argo_url": "link_url"
+}

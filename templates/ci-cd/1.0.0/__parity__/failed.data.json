@@ -1,0 +1,18 @@
+{
+  "title": "❌ CI · healthcart-v2 · #2451 · FAILED",
+  "ref": "feature/checkout-fix",
+  "short_sha": "a1b9f2c",
+  "description": "Fix Stitch amount overflow",
+  "author": "Naledi",
+  "icon_url": "https://placehold.co/72x72/e01e5a/ffffff/png?text=FAIL",
+  "icon_alt": "failed",
+  "steps_text": "✅ Install     ✅ Lint     ❌ Test     ⬜ Build     ⬜ Deploy",
+  "progress_bar": "🟥🟥🟥⬜⬜  2 of 5 · 1m22s · *test stage failed*",
+  "runner": "ci-3",
+  "test_count": "142",
+  "coverage": "84.2%",
+  "finished_at": { "epoch": 1750000000, "format": "{time}", "fallback": "now" },
+  "primary_label": "❌ View failure",
+  "primary_url": "https://ci.example.com/healthcart-v2/2451",
+  "logs_url": "https://ci.example.com/healthcart-v2/2451/logs"
+}

@@ -1,0 +1,16 @@
+{
+  "title": "text_plain",
+  "accent": "color",
+  "service": "text_plain",
+  "slo_target": "text_plain",
+  "current_sli": "text_plain",
+  "window": "text_plain",
+  "burn_rate": "text_plain",
+  "status": "text_plain",
+  "budget_bar": "text_plain",
+  "budget_consumed": "text_plain",
+  "budget_remaining": "text_mrkdwn",
+  "alert_policy": "text_mrkdwn",
+  "dashboard_url": "link_url",
+  "alerts_url": "link_url"
+}

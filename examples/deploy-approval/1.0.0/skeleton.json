@@ -1,0 +1,53 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": { "type": "plain_text", "text": "{{text_plain:title}}" }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Service:*\n{{text_plain:service}}" },
+        { "type": "mrkdwn", "text": "*Version:*\n`{{text_plain:version}}`" },
+        { "type": "mrkdwn", "text": "*Environment:*\n{{text_plain:environment}}" },
+        { "type": "mrkdwn", "text": "*Requested by:*\n{{user_mention:requested_by}}" },
+        { "type": "mrkdwn", "text": "*Changes:*\n{{text_plain:change_count}}" },
+        { "type": "mrkdwn", "text": "*Window:*\n{{text_plain:window}}" }
+      ]
+    },
+    {
+      "type": "section",
+      "text": { "type": "mrkdwn", "text": "*Top changes*\n{{text_mrkdwn:changes}}" }
+    },
+    {
+      "type": "context",
+      "elements": [
+        { "type": "image", "image_url": "{{image_url:deadline_icon}}", "alt_text": "deadline" },
+        { "type": "mrkdwn", "text": "Approve before {{code:deadline}}" }
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Approve" },
+          "style": "primary",
+          "url": "{{link_url:approve_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Reject" },
+          "style": "danger",
+          "url": "{{link_url:reject_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "View Diff" },
+          "url": "{{link_url:diff_url}}"
+        }
+      ]
+    }
+  ]
+}

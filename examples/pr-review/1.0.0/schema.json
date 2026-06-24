@@ -1,0 +1,22 @@
+{
+  "accent": "color",
+  "header_title": "text_plain",
+  "repo": "text_plain",
+  "pr_number": "text_plain",
+  "pr_title": "code",
+  "author": "text_mrkdwn",
+  "additions": "text_plain",
+  "deletions": "text_plain",
+  "branch": "text_plain",
+  "check_lint": "text_mrkdwn",
+  "check_test": "text_mrkdwn",
+  "check_build": "text_mrkdwn",
+  "check_coverage": "text_mrkdwn",
+  "reviewer_avatar": "image_url",
+  "reviewer_avatar_alt": "text_plain",
+  "reviewer": "text_mrkdwn",
+  "opened_at": "code",
+  "review_url": "link_url",
+  "files_url": "link_url",
+  "ci_url": "link_url"
+}

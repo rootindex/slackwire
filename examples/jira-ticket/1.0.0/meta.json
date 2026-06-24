@@ -1,0 +1,7 @@
+{
+  "name": "jira-ticket",
+  "version": "1.0.0",
+  "description": "Rich Jira ticket card with key/summary/status fields, assignee, created time, and Jira action buttons",
+  "overflow": "fail",
+  "states": ["open"]
+}

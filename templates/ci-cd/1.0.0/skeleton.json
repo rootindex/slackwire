@@ -1,0 +1,56 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "{{text_plain:title}}",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "`{{text_plain:ref}}` · `{{text_plain:short_sha}}` · _{{text_mrkdwn:description}}_\nby *{{text_mrkdwn:author}}*"
+      },
+      "accessory": {
+        "type": "image",
+        "image_url": "{{image_url:icon_url}}",
+        "alt_text": "{{text_plain:icon_alt}}"
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "{{text_mrkdwn:steps_text}}\n{{text_mrkdwn:progress_bar}}"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "runner `{{text_plain:runner}}` · {{text_plain:test_count}} tests · coverage {{text_plain:coverage}} · finished {{date:finished_at}}"
+        }
+      ]
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "{{text_plain:primary_label}}" },
+          "style": "primary",
+          "url": "{{link_url:primary_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "View logs" },
+          "url": "{{link_url:logs_url}}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "title": "text_plain",
+  "accent": "color",
+  "jira_key": "text_plain",
+  "summary": "text_mrkdwn",
+  "status": "text_plain",
+  "priority": "text_plain",
+  "story_points": "text_plain",
+  "assignee": "text_plain",
+  "icon_url": "image_url",
+  "created_epoch": "text_plain",
+  "created_fallback": "text_plain",
+  "reporter": "text_mrkdwn",
+  "view_url": "link_url",
+  "transition_url": "link_url",
+  "transition_label": "text_plain"
+}

@@ -1,0 +1,14 @@
+{
+  "version": "text_plain",
+  "name": "text_plain",
+  "accent": "color",
+  "highlights": "text_mrkdwn",
+  "released": "text_plain",
+  "commits": "text_plain",
+  "contributors": "text_plain",
+  "downloads": "text_plain",
+  "icon_url": "image_url",
+  "changelog_url": "link_url",
+  "download_url": "link_url",
+  "docs_url": "link_url"
+}

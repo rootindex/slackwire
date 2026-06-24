@@ -1,0 +1,8 @@
+{
+  "name": "incident",
+  "version": "1.0.0",
+  "description": "On-call incident card with morph states (TRIGGERED -> MITIGATING -> RESOLVED)",
+  "overflow": "fail",
+  "states": ["TRIGGERED", "MITIGATING", "RESOLVED"],
+  "alertBlockVariant": true
+}

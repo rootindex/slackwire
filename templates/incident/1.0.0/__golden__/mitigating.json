@@ -1,0 +1,61 @@
+{
+  "blocks": [],
+  "attachments": [
+    {
+      "color": "#ecb22e",
+      "blocks": [
+        {
+          "type": "header",
+          "text": {
+            "type": "plain_text",
+            "text": "Database connection pool exhausted"
+          }
+        },
+        {
+          "type": "section",
+          "fields": [
+            {
+              "type": "mrkdwn",
+              "text": "*Severity:* MITIGATING"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Incident ID:* INC-001"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Service:* payments-api"
+            },
+            {
+              "type": "mrkdwn",
+              "text": "*Assigned to:* on-call-team"
+            }
+          ]
+        },
+        {
+          "type": "actions",
+          "elements": [
+            {
+              "type": "button",
+              "text": {
+                "type": "plain_text",
+                "text": "View Runbook"
+              },
+              "url": "https://example.com/runbooks/db-pool"
+            }
+          ]
+        },
+        {
+          "type": "context",
+          "elements": [
+            {
+              "type": "mrkdwn",
+              "text": "Slack Card Engine"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "text": "Database connection pool exhausted Severity: MITIGATING Incident ID: INC-001 Service: payments-api Assigned to: on-call-team"
+}

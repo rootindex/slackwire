@@ -1,0 +1,14 @@
+{
+  "status": "text_plain",
+  "accent": "color",
+  "repo": "text_plain",
+  "branch": "text_plain",
+  "commit": "text_plain",
+  "triggered_by": "text_mrkdwn",
+  "stage_checklist": "text_mrkdwn",
+  "progress_bar": "text_plain",
+  "progress_text": "text_plain",
+  "runner": "text_plain",
+  "pipeline_url": "link_url",
+  "logs_url": "link_url"
+}

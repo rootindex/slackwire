@@ -1,0 +1,65 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "🚀 {{text_plain:name}} {{text_plain:version}}",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*What's new in this release*\n{{text_mrkdwn:highlights}}"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Version*\n`{{text_plain:version}}`" },
+        { "type": "mrkdwn", "text": "*Released*\n{{text_plain:released}}" },
+        { "type": "mrkdwn", "text": "*Commits*\n{{text_plain:commits}}" },
+        { "type": "mrkdwn", "text": "*Contributors*\n{{text_plain:contributors}}" },
+        { "type": "mrkdwn", "text": "*Downloads*\n{{text_plain:downloads}}" }
+      ]
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "image",
+          "image_url": "{{image_url:icon_url}}",
+          "alt_text": "release"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "Released <!date^1782315000^{date_short_pretty} at {time}|2026-06-24> · {{text_plain:name}} {{text_plain:version}}"
+        }
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "📜 Changelog", "emoji": true },
+          "url": "{{link_url:changelog_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "⬇️ Download", "emoji": true },
+          "style": "primary",
+          "url": "{{link_url:download_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "📚 Docs", "emoji": true },
+          "url": "{{link_url:docs_url}}"
+        }
+      ]
+    }
+  ]
+}

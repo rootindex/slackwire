@@ -1,0 +1,57 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "{{text_plain:title}}",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Service*\n{{text_plain:service}}" },
+        { "type": "mrkdwn", "text": "*Status*\n{{text_plain:status}}" },
+        { "type": "mrkdwn", "text": "*SLO target*\n{{text_plain:slo_target}}" },
+        { "type": "mrkdwn", "text": "*Current SLI*\n{{text_plain:current_sli}}" },
+        { "type": "mrkdwn", "text": "*Window*\n{{text_plain:window}}" },
+        { "type": "mrkdwn", "text": "*Burn rate*\n{{text_plain:burn_rate}}" }
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Error budget burn*\n{{text_plain:budget_bar}}  *{{text_plain:budget_consumed}} consumed*\n{{text_mrkdwn:budget_remaining}}"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Last evaluated <!date^1750000000^{date_short_pretty} at {time}|Jun 15, 2025> · Policy: {{text_mrkdwn:alert_policy}}"
+        }
+      ]
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "SLO dashboard", "emoji": true },
+          "url": "{{link_url:dashboard_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Alerts", "emoji": true },
+          "url": "{{link_url:alerts_url}}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "slo-budget",
+  "version": "1.0.0",
+  "description": "SLO / error-budget burn card with budget bar, status fields, and dashboard actions",
+  "overflow": "fail",
+  "states": ["healthy", "burning", "exhausted"]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "incident-live",
+  "version": "1.0.0",
+  "description": "Rich on-call incident live card with morph states (TRIGGERED/MITIGATING/RESOLVED)",
+  "overflow": "fail",
+  "states": ["TRIGGERED", "MITIGATING", "RESOLVED"]
+}

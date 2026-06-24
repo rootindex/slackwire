@@ -1,0 +1,9 @@
+{
+  "title": "text_plain",
+  "severity": "text_plain",
+  "accent": "color",
+  "incident_id": "text_plain",
+  "service": "text_plain",
+  "runbook_url": "link_url",
+  "assigned_to": "text_plain"
+}

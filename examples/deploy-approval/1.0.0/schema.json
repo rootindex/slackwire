@@ -1,0 +1,16 @@
+{
+  "title": "text_plain",
+  "accent": "color",
+  "service": "text_plain",
+  "version": "text_plain",
+  "environment": "text_plain",
+  "requested_by": "user_mention",
+  "change_count": "text_plain",
+  "window": "text_plain",
+  "changes": "text_mrkdwn",
+  "deadline": "code",
+  "deadline_icon": "image_url",
+  "approve_url": "link_url",
+  "reject_url": "link_url",
+  "diff_url": "link_url"
+}

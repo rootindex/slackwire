@@ -1,0 +1,86 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": ":jira: {{text_plain:jira_key}} — {{text_plain:title}}",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": ":memo: *Summary*\n{{text_mrkdwn:summary}}"
+      },
+      "fields": [
+        {
+          "type": "mrkdwn",
+          "text": ":label: *Key*\n`{{text_plain:jira_key}}`"
+        },
+        {
+          "type": "mrkdwn",
+          "text": ":card_index_dividers: *Status*\n{{text_plain:status}}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": ":fire: *Priority*\n{{text_plain:priority}}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": ":dart: *Story Points*\n{{text_plain:story_points}}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": ":bust_in_silhouette: *Assignee*\n{{text_plain:assignee}}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": ":eyes: *Reporter*\n{{text_mrkdwn:reporter}}"
+        }
+      ]
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "image",
+          "image_url": "{{image_url:icon_url}}",
+          "alt_text": "Jira"
+        },
+        {
+          "type": "mrkdwn",
+          "text": ":calendar: Created <!date^{{text_plain:created_epoch}}^{date_short_pretty} at {time}|{{text_plain:created_fallback}}>"
+        }
+      ]
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "style": "primary",
+          "text": {
+            "type": "plain_text",
+            "text": ":link: View in Jira",
+            "emoji": true
+          },
+          "url": "{{link_url:view_url}}"
+        },
+        {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": ":arrows_counterclockwise: {{text_plain:transition_label}}",
+            "emoji": true
+          },
+          "url": "{{link_url:transition_url}}"
+        }
+      ]
+    }
+  ]
+}

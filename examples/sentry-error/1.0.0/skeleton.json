@@ -1,0 +1,63 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "{{text_plain:error_type}}",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*{{text_mrkdwn:error_message}}*"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Project*\n{{text_plain:project}}" },
+        { "type": "mrkdwn", "text": "*Environment*\n{{text_plain:environment}}" },
+        { "type": "mrkdwn", "text": "*Events*\n{{text_plain:events_count}}" },
+        { "type": "mrkdwn", "text": "*Users affected*\n{{text_plain:users_affected}}" },
+        { "type": "mrkdwn", "text": "*Level*\n{{text_plain:level}}" },
+        { "type": "mrkdwn", "text": "*First seen*\n{{text_plain:first_seen}}" }
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Stack trace*\n```{{code_block:stack_trace}}```"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Culprit: {{text_mrkdwn:culprit}}  |  Last seen <!date^1750000000^{date_short_pretty} at {time}|2025-06-15 14:26 UTC>"
+        }
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Open in Sentry", "emoji": true },
+          "style": "primary",
+          "url": "{{link_url:sentry_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Assign", "emoji": true },
+          "url": "{{link_url:assign_url}}"
+        }
+      ]
+    }
+  ]
+}

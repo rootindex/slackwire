@@ -1,0 +1,29 @@
+{
+  "name": "@slack-cards/core",
+  "version": "0.0.0",
+  "description": "Slack client, template engine, and render pipeline",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@slack/web-api": "^7.0.0",
+    "ajv": "^8.0.0",
+    "https-proxy-agent": "^9.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

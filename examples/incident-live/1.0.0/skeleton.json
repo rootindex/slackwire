@@ -1,0 +1,60 @@
+{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "{{text_plain:severity_emoji}} Incident {{text_plain:status}}: {{text_plain:title}}",
+        "emoji": true
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        { "type": "mrkdwn", "text": "*Incident ID*\n`{{text_plain:incident_id}}`" },
+        { "type": "mrkdwn", "text": "*Service*\n`{{text_plain:service}}`" },
+        { "type": "mrkdwn", "text": "*Severity*\n{{text_plain:severity}}" },
+        { "type": "mrkdwn", "text": "*Status*\n{{text_plain:status}}" },
+        { "type": "mrkdwn", "text": "*On-call*\n{{text_mrkdwn:on_call}}" },
+        { "type": "mrkdwn", "text": "*Started*\n{{text_plain:started}}" }
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Impact*\n{{text_mrkdwn:impact}}"
+      }
+    },
+    {
+      "type": "context",
+      "elements": [
+        {
+          "type": "mrkdwn",
+          "text": "Source: {{text_plain:source}}  |  Started <!date^1750759200^{date_short_pretty} at {time}|2026-06-24 10:00 UTC>"
+        }
+      ]
+    },
+    { "type": "divider" },
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Runbook", "emoji": true },
+          "url": "{{link_url:runbook_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Dashboard", "emoji": true },
+          "url": "{{link_url:dashboard_url}}"
+        },
+        {
+          "type": "button",
+          "text": { "type": "plain_text", "text": "Statuspage", "emoji": true },
+          "url": "{{link_url:statuspage_url}}"
+        }
+      ]
+    }
+  ]
+}

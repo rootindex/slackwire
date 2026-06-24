@@ -1,0 +1,69 @@
+{
+  "blocks": [],
+  "attachments": [
+    {
+      "color": "#e01e5a",
+      "blocks": [
+        {
+          "type": "header",
+          "text": {
+            "type": "plain_text",
+            "text": "❌ CI · healthcart-v2 · #2451 · FAILED",
+            "emoji": true
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "`feature/checkout-fix` · `a1b9f2c` · _Fix Stitch amount overflow_\nby *Naledi*"
+          },
+          "accessory": {
+            "type": "image",
+            "image_url": "https://placehold.co/72x72/e01e5a/ffffff/png?text=FAIL",
+            "alt_text": "failed"
+          }
+        },
+        {
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": "✅ Install     ✅ Lint     ❌ Test     ⬜ Build     ⬜ Deploy\n🟥🟥🟥⬜⬜  2 of 5 · 1m22s · *test stage failed*"
+          }
+        },
+        {
+          "type": "context",
+          "elements": [
+            {
+              "type": "mrkdwn",
+              "text": "runner `ci-3` · 142 tests · coverage 84.2% · finished <!date^1750000000^{time}|now>"
+            }
+          ]
+        },
+        {
+          "type": "actions",
+          "elements": [
+            {
+              "type": "button",
+              "text": {
+                "type": "plain_text",
+                "text": "❌ View failure"
+              },
+              "style": "primary",
+              "url": "https://ci.example.com/healthcart-v2/2451"
+            },
+            {
+              "type": "button",
+              "text": {
+                "type": "plain_text",
+                "text": "View logs"
+              },
+              "url": "https://ci.example.com/healthcart-v2/2451/logs"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "text": "❌ CI · healthcart-v2 · #2451 · FAILED · · Fix Stitch amount overflow by Naledi"
+}

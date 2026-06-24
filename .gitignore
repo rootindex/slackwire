@@ -1,0 +1,17 @@
+# Slack user token — NEVER commit. Live xoxp secret used for local testing.
+.slack_token
+
+# Node / build
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Local resolver cache (name->id) — never commit
+.cache/
+*.cache.json
+
+# Loop/demo scratch
+research/loop.gen
+
+# pnpm content-addressable store — never commit
+.pnpm-store/

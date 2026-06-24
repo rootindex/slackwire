@@ -1,0 +1,7 @@
+{
+  "name": "release-notes",
+  "version": "1.0.0",
+  "description": "Rich release-notes announcement card with highlights, stats, and action buttons",
+  "overflow": "fail",
+  "states": []
+}
