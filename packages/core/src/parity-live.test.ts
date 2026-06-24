@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { resolveParityToken, shouldRunParityLive } from './parity-live.js';
+import type { FsAdapter } from './loader.js';
 
 const LIVE_FLAG = process.env['SLACK_PARITY_LIVE'] === '1';
 const TOKEN_RESOLVED = (() => {
@@ -217,16 +220,176 @@ describe('parity-live mock-driven', () => {
 // True live describe block (only runs under SLACK_PARITY_LIVE=1 + token)
 // ---------------------------------------------------------------------------
 
+// Repo root is two levels up from packages/core (vitest CWD = packages/core)
+const repoRoot = resolve(process.cwd(), '../..');
+const catalogPath = join(repoRoot, 'templates');
+const partialsDir = join(repoRoot, 'templates/partials');
+const parityDir = join(catalogPath, 'ci-cd/1.0.0/__parity__');
+
+function makeNodeFsAdapter(): FsAdapter {
+  return {
+    readFile: (path: string) => readFileSync(path, 'utf8'),
+    listDirs: (path: string) =>
+      readdirSync(path, { withFileTypes: true })
+        .filter(e => e.isDirectory())
+        .map(e => e.name),
+  };
+}
+
+function loadLivePartials(dir: string, fs: FsAdapter): Record<string, object[]> {
+  const entries = readdirSync(dir, { withFileTypes: true }).filter(
+    e => e.isFile() && e.name.endsWith('.json'),
+  );
+  const result: Record<string, object[]> = {};
+  for (const entry of entries) {
+    const name = entry.name.replace(/\.json$/, '');
+    result[name] = JSON.parse(fs.readFile(resolve(dir, entry.name))) as object[];
+  }
+  return result;
+}
+
 describe.skipIf(!liveCondition)('parity-live LIVE (requires SLACK_PARITY_LIVE=1 + token)', () => {
-  it('posts the raw fixture and the engine render and fetches both via history when enabled', async () => {
-    expect(liveCondition).toBe(true);
+  const CHANNEL = 'C0EXAMPLE123';
+
+  it('posts the raw fixture and the engine render and fetches both via history when enabled', { timeout: 30000 }, async () => {
+    const { SlackClient } = await import('./slack-client.js');
+    const { render } = await import('./render.js');
+
+    const token = resolveParityToken();
+    const client = new SlackClient(token);
+
+    const rawPayload = JSON.parse(readFileSync(join(parityDir, 'passed.raw.json'), 'utf8')) as {
+      blocks?: unknown[];
+      attachments?: unknown[];
+      text?: string;
+    };
+    const data = JSON.parse(readFileSync(join(parityDir, 'passed.data.json'), 'utf8')) as Record<string, unknown>;
+    const opts = JSON.parse(readFileSync(join(parityDir, 'passed.opts.json'), 'utf8')) as {
+      themeToken?: string;
+      attribution?: boolean;
+    };
+    const fs = makeNodeFsAdapter();
+    const partials = loadLivePartials(partialsDir, fs);
+    const enginePayload = render({ catalogPath, name: 'ci-cd', version: '1.0.0' }, data, { fs, partials, ...opts });
+
+    let rawTs: string | undefined;
+    let engineTs: string | undefined;
+    try {
+      const rawResult = await client.post({ channel: CHANNEL, ...rawPayload });
+      rawTs = rawResult.ts;
+      const engineResult = await client.post({ channel: CHANNEL, ...enginePayload });
+      engineTs = engineResult.ts;
+
+      expect(rawTs).toBeTruthy();
+      expect(engineTs).toBeTruthy();
+    } finally {
+      if (rawTs) await client.delete(CHANNEL, rawTs).catch(() => undefined);
+      if (engineTs) await client.delete(CHANNEL, engineTs).catch(() => undefined);
+    }
   });
 
-  it('asserts the stored history payloads for both messages are equivalent after normalization', async () => {
-    expect(liveCondition).toBe(true);
+  it('asserts the stored history payloads for both messages are equivalent after normalization', { timeout: 30000 }, async () => {
+    const { SlackClient } = await import('./slack-client.js');
+    const { render } = await import('./render.js');
+    const { parityDiff } = await import('./parity-normalize.js');
+
+    const token = resolveParityToken();
+    const client = new SlackClient(token);
+
+    const rawPayload = JSON.parse(readFileSync(join(parityDir, 'passed.raw.json'), 'utf8')) as {
+      blocks?: unknown[];
+      attachments?: unknown[];
+      text?: string;
+    };
+    const data = JSON.parse(readFileSync(join(parityDir, 'passed.data.json'), 'utf8')) as Record<string, unknown>;
+    const opts = JSON.parse(readFileSync(join(parityDir, 'passed.opts.json'), 'utf8')) as {
+      themeToken?: string;
+      attribution?: boolean;
+    };
+    const fs = makeNodeFsAdapter();
+    const partials = loadLivePartials(partialsDir, fs);
+    const enginePayload = render({ catalogPath, name: 'ci-cd', version: '1.0.0' }, data, { fs, partials, ...opts });
+
+    let rawTs: string | undefined;
+    let engineTs: string | undefined;
+    try {
+      const rawResult = await client.post({ channel: CHANNEL, ...rawPayload });
+      rawTs = rawResult.ts;
+      const engineResult = await client.post({ channel: CHANNEL, ...enginePayload });
+      engineTs = engineResult.ts;
+
+      // Fetch back from Slack history to get what was actually stored.
+      // Slack history oldest/latest bounds are exclusive by default, so we
+      // don't pass them - we just fetch recent messages and find by ts.
+      const history = await client.history({
+        channel: CHANNEL,
+        limit: 20,
+      });
+
+      const rawMsg = history.find(m => m.ts === rawTs);
+      const engineMsg = history.find(m => m.ts === engineTs);
+
+      expect(rawMsg, 'raw message not found in history').toBeDefined();
+      expect(engineMsg, 'engine message not found in history').toBeDefined();
+
+      const rawStored = { blocks: rawMsg?.blocks ?? [], attachments: rawMsg?.attachments ?? [] };
+      const engineStored = { blocks: engineMsg?.blocks ?? [], attachments: engineMsg?.attachments ?? [] };
+
+      // Stored payloads must match each other
+      const diff = parityDiff(rawStored, engineStored);
+      expect(diff, `stored payloads diverge: ${diff}`).toBeNull();
+
+      // Round-trip fidelity: Slack normalizes emoji (unicode -> colon syntax) and
+      // adds synthesized rich_text blocks, so we verify the engine output was
+      // actually stored by asserting the stored attachments are non-empty.
+      expect((engineMsg?.attachments ?? []).length, 'engine stored no attachments').toBeGreaterThan(0);
+    } finally {
+      if (rawTs) await client.delete(CHANNEL, rawTs).catch(() => undefined);
+      if (engineTs) await client.delete(CHANNEL, engineTs).catch(() => undefined);
+    }
   });
 
-  it('cleans up posted messages via SlackClient.delete after comparison', async () => {
-    expect(liveCondition).toBe(true);
+  it('cleans up posted messages via SlackClient.delete after comparison', { timeout: 30000 }, async () => {
+    const { SlackClient } = await import('./slack-client.js');
+    const { render } = await import('./render.js');
+
+    const token = resolveParityToken();
+    const client = new SlackClient(token);
+
+    const rawPayload = JSON.parse(readFileSync(join(parityDir, 'passed.raw.json'), 'utf8')) as {
+      blocks?: unknown[];
+      attachments?: unknown[];
+      text?: string;
+    };
+    const data = JSON.parse(readFileSync(join(parityDir, 'passed.data.json'), 'utf8')) as Record<string, unknown>;
+    const opts = JSON.parse(readFileSync(join(parityDir, 'passed.opts.json'), 'utf8')) as {
+      themeToken?: string;
+      attribution?: boolean;
+    };
+    const fs = makeNodeFsAdapter();
+    const partials = loadLivePartials(partialsDir, fs);
+    const enginePayload = render({ catalogPath, name: 'ci-cd', version: '1.0.0' }, data, { fs, partials, ...opts });
+
+    let rawTs: string | undefined;
+    let engineTs: string | undefined;
+    try {
+      const rawResult = await client.post({ channel: CHANNEL, ...rawPayload });
+      rawTs = rawResult.ts;
+      const engineResult = await client.post({ channel: CHANNEL, ...enginePayload });
+      engineTs = engineResult.ts;
+    } finally {
+      if (rawTs) await client.delete(CHANNEL, rawTs);
+      if (engineTs) await client.delete(CHANNEL, engineTs);
+    }
+
+    // Verify messages are gone from history
+    if (rawTs && engineTs) {
+      const history = await client.history({
+        channel: CHANNEL,
+        limit: 20,
+      });
+      expect(history.find(m => m.ts === rawTs), 'raw message was not deleted').toBeUndefined();
+      expect(history.find(m => m.ts === engineTs), 'engine message was not deleted').toBeUndefined();
+    }
   });
 });

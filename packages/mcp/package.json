@@ -1,10 +1,27 @@
 {
   "name": "@slackwire/mcp",
   "version": "0.1.0",
-  "description": "MCP server front-end for the Slack Card Engine",
+  "description": "MCP server exposing slackwire Slack operations as tools",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "slackwire-mcp": "./dist/main.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "keywords": ["slack", "mcp", "model-context-protocol", "cli"],
+  "files": ["dist"],
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/REPLACE-ME/slackwire"
+  },
+  "homepage": "https://gitlab.com/REPLACE-ME/slackwire",
+  "bugs": {
+    "url": "https://gitlab.com/REPLACE-ME/slackwire/-/issues"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
