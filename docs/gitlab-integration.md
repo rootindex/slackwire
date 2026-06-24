@@ -12,7 +12,7 @@ The dotenv `ts` is a cache. If the artifact is lost (e.g. retry, cross-pipeline 
 
 ## Prerequisites
 
-- Docker image `slack-cards:dev` available in your registry, or use `npx @slack-cards/cli` in a Node environment.
+- Docker image `slackwire:dev` available in your registry, or use `npx slackwire` in a Node environment.
 - A Slack bot token (`xoxb-...`) or user token (`xoxp-...`) stored as a CI variable `SLACK_TOKEN`.
 - A template in your catalog, e.g. `cicd-live@1.0.0`.
 
@@ -26,10 +26,10 @@ variables:
 
 notify:running:
   stage: .pre
-  image: slack-cards:dev
+  image: slackwire:dev
   script:
     - |
-      slack-cards card \
+      slackwire card \
         --template cicd-live@1.0.0 \
         --channel "$SLACK_CHANNEL" \
         --data "{\"pipeline\":\"$CI_PIPELINE_ID\",\"job\":\"$CI_JOB_NAME\",\"status\":\"running\",\"ref\":\"$CI_COMMIT_REF_NAME\"}" \
@@ -41,13 +41,13 @@ notify:running:
 
 notify:success:
   stage: .post
-  image: slack-cards:dev
+  image: slackwire:dev
   needs:
     - job: notify:running
       artifacts: true
   script:
     - |
-      slack-cards update \
+      slackwire update \
         --channel "$SLACK_CHANNEL" \
         --ts "$SLACK_TS" \
         --template cicd-live@1.0.0 \
@@ -56,12 +56,12 @@ notify:success:
 
 notify:failure:
   stage: .post
-  image: slack-cards:dev
+  image: slackwire:dev
   dependencies:
     - notify:running
   script:
     - |
-      slack-cards update \
+      slackwire update \
         --channel "$SLACK_CHANNEL" \
         --ts "$SLACK_TS" \
         --template cicd-live@1.0.0 \
@@ -128,7 +128,7 @@ Pass it as `dedupeKey` in your `--data` JSON. The CLI stamps it into Slack messa
 For local testing without the Docker image:
 
 ```bash
-npx @slack-cards/cli card \
+npx slackwire card \
   --template cicd-live@1.0.0 \
   --channel C0EXAMPLE123 \
   --dry-run \

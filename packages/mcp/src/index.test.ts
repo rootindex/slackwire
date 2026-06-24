@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type { SlackClient, Resolver } from '@slack-cards/core';
+import type { SlackClient, Resolver } from '@slackwire/core';
 import { createMcpServer } from './server.js';
 
 function makeMockClient(): SlackClient {
@@ -138,11 +138,11 @@ describe('mcp server', () => {
       const stderrCalls = stderrSpy.mock.calls.map((c) => String(c[0]));
       const stdoutCalls = stdoutSpy.mock.calls.map((c) => String(c[0]));
 
-      const hasStderrLog = stderrCalls.some((s) => s.includes('slack-cards-mcp'));
+      const hasStderrLog = stderrCalls.some((s) => s.includes('slackwire-mcp'));
       expect(hasStderrLog).toBe(true);
 
       const hasStdoutLog = stdoutCalls.some(
-        (s) => s.includes('slack-cards-mcp') && !s.startsWith('{'),
+        (s) => s.includes('slackwire-mcp') && !s.startsWith('{'),
       );
       expect(hasStdoutLog).toBe(false);
     } finally {

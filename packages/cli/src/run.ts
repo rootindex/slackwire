@@ -12,8 +12,8 @@ import {
   validateStructural,
   validateLimits,
   deriveFallback,
-} from '@slack-cards/core';
-import type { RenderOptions, TemplateRef } from '@slack-cards/core';
+} from '@slackwire/core';
+import type { RenderOptions, TemplateRef } from '@slackwire/core';
 
 type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -122,7 +122,7 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
 
   if (!verb) {
     io.stderr(
-      'Usage: slack-cards <card|post|update|delete|react|upload> [options]\n' +
+      'Usage: slackwire <card|post|update|delete|react|upload> [options]\n' +
       '\n' +
       'Verbs:\n' +
       '  post    --channel <c> (--template <n@v> | --blocks <json>|-  | --text <t>)\n' +

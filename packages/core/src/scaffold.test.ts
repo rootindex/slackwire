@@ -13,9 +13,9 @@ describe('monorepo scaffold', () => {
     const cliPkg = JSON.parse(readFileSync(resolve(rootDir, 'packages/cli/package.json'), 'utf8')) as { name: string };
     const mcpPkg = JSON.parse(readFileSync(resolve(rootDir, 'packages/mcp/package.json'), 'utf8')) as { name: string };
 
-    expect(corePkg.name).toBe('@slack-cards/core');
-    expect(cliPkg.name).toBe('@slack-cards/cli');
-    expect(mcpPkg.name).toBe('@slack-cards/mcp');
+    expect(corePkg.name).toBe('@slackwire/core');
+    expect(cliPkg.name).toBe('slackwire');
+    expect(mcpPkg.name).toBe('@slackwire/mcp');
   });
 
   it('compiles core, cli, and mcp with tsc strict and no errors', () => {
@@ -40,12 +40,12 @@ describe('monorepo scaffold', () => {
     expect(mcpPkg.scripts['test']).toContain('vitest');
   });
 
-  it('exposes @slack-cards/core as a workspace dependency to cli and mcp', () => {
+  it('exposes @slackwire/core as a workspace dependency to cli and mcp', () => {
     const cliPkg = JSON.parse(readFileSync(resolve(rootDir, 'packages/cli/package.json'), 'utf8')) as { dependencies: Record<string, string> };
     const mcpPkg = JSON.parse(readFileSync(resolve(rootDir, 'packages/mcp/package.json'), 'utf8')) as { dependencies: Record<string, string> };
 
-    expect(cliPkg.dependencies['@slack-cards/core']).toBe('workspace:*');
-    expect(mcpPkg.dependencies['@slack-cards/core']).toBe('workspace:*');
+    expect(cliPkg.dependencies['@slackwire/core']).toBe('workspace:*');
+    expect(mcpPkg.dependencies['@slackwire/core']).toBe('workspace:*');
   });
 
   it('lints the repo with zero eslint errors on the scaffold', () => {

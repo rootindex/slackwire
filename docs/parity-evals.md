@@ -1,6 +1,6 @@
 # Parity Evals
 
-The parity eval harness proves that the `@slack-cards/core` template engine produces output that is structurally identical to the hand-authored, raw-API house-style Slack cards. It is the regression net that keeps the engine honest as it evolves.
+The parity eval harness proves that the `@slackwire/core` template engine produces output that is structurally identical to the hand-authored, raw-API house-style Slack cards. It is the regression net that keeps the engine honest as it evolves.
 
 ## 1. What parity means here
 
@@ -95,16 +95,16 @@ Optionally add a dedicated focused test file (the anchors do this: `parity-cicd.
 Run the whole core test suite (parity tests included):
 
 ```sh
-pnpm --filter @slack-cards/core test
+pnpm --filter @slackwire/core test
 ```
 
 Run a single parity file:
 
 ```sh
-pnpm --filter @slack-cards/core test parity.test.ts
-pnpm --filter @slack-cards/core test parity-cicd.test.ts
-pnpm --filter @slack-cards/core test parity-incident.test.ts
-pnpm --filter @slack-cards/core test parity-live.test.ts
+pnpm --filter @slackwire/core test parity.test.ts
+pnpm --filter @slackwire/core test parity-cicd.test.ts
+pnpm --filter @slackwire/core test parity-incident.test.ts
+pnpm --filter @slackwire/core test parity-live.test.ts
 ```
 
 Goldens are a separate mechanism. Golden snapshots are re-blessed with `UPDATE_GOLDEN=1`. The parity harness has no equivalent flag by design (see section 1): there is no `UPDATE_PARITY`.

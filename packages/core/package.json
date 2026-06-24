@@ -1,6 +1,6 @@
 {
-  "name": "@slack-cards/core",
-  "version": "0.0.0",
+  "name": "@slackwire/core",
+  "version": "0.1.0",
   "description": "Slack client, template engine, and render pipeline",
   "type": "module",
   "main": "./dist/index.js",

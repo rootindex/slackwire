@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { RunIO } from './run.js';
 
-vi.mock('@slack-cards/core', async () => {
+vi.mock('@slackwire/core', async () => {
   const SchemaError = class SchemaError extends Error {
     constructor(message: string) {
       super(message);
@@ -120,7 +120,7 @@ describe('CLI', () => {
 
   it('posts a card from a template and prints ts and permalink', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, render } = await import('@slack-cards/core');
+    const { SlackClient, render } = await import('@slackwire/core');
 
     (render as ReturnType<typeof vi.fn>).mockReturnValue({
       blocks: [{ type: 'section', text: { type: 'mrkdwn', text: 'Hello' } }],
@@ -153,7 +153,7 @@ describe('CLI', () => {
 
   it('morphs an existing card with update --ts', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, render } = await import('@slack-cards/core');
+    const { SlackClient, render } = await import('@slackwire/core');
 
     (render as ReturnType<typeof vi.fn>).mockReturnValue({
       blocks: [{ type: 'section', text: { type: 'mrkdwn', text: 'Updated' } }],
@@ -188,7 +188,7 @@ describe('CLI', () => {
 
   it('resolves a channel name to an id before posting', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, Resolver, render } = await import('@slack-cards/core');
+    const { SlackClient, Resolver, render } = await import('@slackwire/core');
 
     (render as ReturnType<typeof vi.fn>).mockReturnValue({
       blocks: [],
@@ -226,7 +226,7 @@ describe('CLI', () => {
 
   it('exits 2 on a validation error', async () => {
     const { run } = await import('./run.js');
-    const { render, SchemaError } = await import('@slack-cards/core');
+    const { render, SchemaError } = await import('@slackwire/core');
 
     (render as ReturnType<typeof vi.fn>).mockImplementation(() => {
       throw new (SchemaError as new (msg: string) => Error)('missing required field: title');
@@ -246,7 +246,7 @@ describe('CLI', () => {
 
   it('exits 0 and warns under the default non-blocking fail mode on a Slack error', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, render, SlackApiError } = await import('@slack-cards/core');
+    const { SlackClient, render, SlackApiError } = await import('@slackwire/core');
 
     (render as ReturnType<typeof vi.fn>).mockReturnValue({
       blocks: [],
@@ -278,7 +278,7 @@ describe('CLI', () => {
 
   it('reads the token from SLACK_TOKEN_FILE when SLACK_TOKEN is absent', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, render } = await import('@slack-cards/core');
+    const { SlackClient, render } = await import('@slackwire/core');
 
     (render as ReturnType<typeof vi.fn>).mockReturnValue({
       blocks: [], attachments: [], text: 'Hi',
@@ -315,7 +315,7 @@ describe('CLI', () => {
 
   it('forwards non-empty attachments to client.post', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, render } = await import('@slack-cards/core');
+    const { SlackClient, render } = await import('@slackwire/core');
 
     const mockAttachments = [{ color: '#2eb67d', blocks: [] }];
     (render as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -349,7 +349,7 @@ describe('CLI', () => {
 
   it('passes --theme as the render themeToken', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, render } = await import('@slack-cards/core');
+    const { SlackClient, render } = await import('@slackwire/core');
 
     (render as ReturnType<typeof vi.fn>).mockReturnValue({
       blocks: [], attachments: [], text: 'Hello',
@@ -380,7 +380,7 @@ describe('CLI', () => {
 
   it('lets --theme take precedence over a payload accent field', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, render } = await import('@slack-cards/core');
+    const { SlackClient, render } = await import('@slackwire/core');
 
     (render as ReturnType<typeof vi.fn>).mockReturnValue({
       blocks: [], attachments: [], text: 'Hello',
@@ -411,7 +411,7 @@ describe('CLI', () => {
 
   it('applies --theme on the update verb as well', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, render } = await import('@slack-cards/core');
+    const { SlackClient, render } = await import('@slackwire/core');
 
     (render as ReturnType<typeof vi.fn>).mockReturnValue({
       blocks: [], attachments: [], text: 'Updated',
@@ -443,7 +443,7 @@ describe('CLI', () => {
 
   it('prints assembled JSON and posts nothing under --dry-run', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, render } = await import('@slack-cards/core');
+    const { SlackClient, render } = await import('@slackwire/core');
 
     const mockBlocks = [{ type: 'section', text: { type: 'mrkdwn', text: 'Dry run' } }];
     (render as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -476,7 +476,7 @@ describe('CLI', () => {
 
   it('posts a plain text message with post --text', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient } = await import('@slack-cards/core');
+    const { SlackClient } = await import('@slackwire/core');
 
     const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
     (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
@@ -503,7 +503,7 @@ describe('CLI', () => {
 
   it('posts raw blocks with post --blocks', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient } = await import('@slack-cards/core');
+    const { SlackClient } = await import('@slackwire/core');
 
     const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: 'raw' } }];
     const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
@@ -531,7 +531,7 @@ describe('CLI', () => {
 
   it('reads raw blocks from stdin with post --blocks -', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient } = await import('@slack-cards/core');
+    const { SlackClient } = await import('@slackwire/core');
 
     const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: 'from stdin' } }];
     const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
@@ -559,7 +559,7 @@ describe('CLI', () => {
 
   it('derives fallback text for raw blocks when no --text is given', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, deriveFallback } = await import('@slack-cards/core');
+    const { SlackClient, deriveFallback } = await import('@slackwire/core');
 
     const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: 'hello' } }];
     (deriveFallback as ReturnType<typeof vi.fn>).mockReturnValue('derived fallback');
@@ -588,7 +588,7 @@ describe('CLI', () => {
 
   it('still posts from a template with post --template', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, render } = await import('@slack-cards/core');
+    const { SlackClient, render } = await import('@slackwire/core');
 
     (render as ReturnType<typeof vi.fn>).mockReturnValue({
       blocks: [{ type: 'section', text: { type: 'mrkdwn', text: 'from template' } }],
@@ -636,7 +636,7 @@ describe('CLI', () => {
 
   it('updates a message with raw blocks via update --blocks', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient } = await import('@slack-cards/core');
+    const { SlackClient } = await import('@slackwire/core');
 
     const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: 'updated raw' } }];
     const mockUpdate = vi.fn().mockResolvedValue({ channel: 'C123', ts: '9999999999.000001' });
@@ -669,7 +669,7 @@ describe('CLI', () => {
 
   it('deletes a message with delete --channel --ts', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient } = await import('@slack-cards/core');
+    const { SlackClient } = await import('@slackwire/core');
 
     const mockDelete = vi.fn().mockResolvedValue(undefined);
     (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
@@ -697,7 +697,7 @@ describe('CLI', () => {
 
   it('reacts to a message with react --emoji', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient } = await import('@slack-cards/core');
+    const { SlackClient } = await import('@slackwire/core');
 
     const mockReact = vi.fn().mockResolvedValue(undefined);
     (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
@@ -726,7 +726,7 @@ describe('CLI', () => {
 
   it('uploads a file with upload --file', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient } = await import('@slack-cards/core');
+    const { SlackClient } = await import('@slackwire/core');
 
     const dir = mkdtempSync(join(tmpdir(), 'upload-test-'));
     const filePath = join(dir, 'test.txt');
@@ -759,7 +759,7 @@ describe('CLI', () => {
 
   it('resolves a channel name to id before posting', async () => {
     const { run } = await import('./run.js');
-    const { SlackClient, Resolver } = await import('@slack-cards/core');
+    const { SlackClient, Resolver } = await import('@slackwire/core');
 
     const mockPost = vi.fn().mockResolvedValue({ channel: 'C456', ts: '1111111111.000001' });
     const mockResolveChannel = vi.fn().mockResolvedValue('C456');

@@ -43,7 +43,7 @@ function blessOrAssert(path: string, actual: object): void {
   }
   if (!existsSync(path)) {
     throw new Error(
-      `Golden file missing: ${path}. Run UPDATE_GOLDEN=1 pnpm --filter @slack-cards/core test to bless.`,
+      `Golden file missing: ${path}. Run UPDATE_GOLDEN=1 pnpm --filter @slackwire/core test to bless.`,
     );
   }
   const expected = JSON.parse(readFileSync(path, 'utf8')) as object;

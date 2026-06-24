@@ -4,10 +4,10 @@ import {
   CallToolRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import type { SlackClient, Resolver } from '@slack-cards/core';
+import type { SlackClient, Resolver } from '@slackwire/core';
 
 const log = (msg: string): void => {
-  process.stderr.write(`[slack-cards-mcp] ${msg}\n`);
+  process.stderr.write(`[slackwire-mcp] ${msg}\n`);
 };
 
 const TOOLS = [
@@ -100,7 +100,7 @@ export function createMcpServer(
   resolver: Resolver,
 ): McpServerHandle {
   const server = new Server(
-    { name: 'slack-cards-mcp', version: '0.0.0' },
+    { name: 'slackwire-mcp', version: '0.1.0' },
     { capabilities: { tools: {} } },
   );
 

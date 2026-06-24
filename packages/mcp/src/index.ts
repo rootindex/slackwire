@@ -1,4 +1,4 @@
-import { VERSION } from '@slack-cards/core';
+import { VERSION } from '@slackwire/core';
 
 export const MCP_VERSION = VERSION;
 export { createMcpServer } from './server.js';

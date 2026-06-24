@@ -1,7 +1,7 @@
 {
-  "name": "@slack-cards/cli",
-  "version": "0.0.0",
-  "description": "CLI front-end for the Slack Card Engine",
+  "name": "slackwire",
+  "version": "0.1.0",
+  "description": "Command-line tool for sending, updating, and managing Slack messages",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,7 +12,7 @@
     }
   },
   "bin": {
-    "slack-cards": "./dist/bundle.cjs"
+    "slackwire": "./dist/bundle.cjs"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && node bundle.mjs",
@@ -20,7 +20,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@slack-cards/core": "workspace:*"
+    "@slackwire/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
