@@ -44,11 +44,17 @@ vi.mock('@slack-cards/core', async () => {
 
   const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
   const mockUpdate = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
+  const mockDelete = vi.fn().mockResolvedValue(undefined);
+  const mockReact = vi.fn().mockResolvedValue(undefined);
+  const mockUploadV2 = vi.fn().mockResolvedValue(undefined);
   const mockResolveChannel = vi.fn().mockResolvedValue(undefined);
 
   const SlackClient = vi.fn().mockImplementation(() => ({
     post: mockPost,
     update: mockUpdate,
+    delete: mockDelete,
+    react: mockReact,
+    uploadV2: mockUploadV2,
     history: vi.fn().mockResolvedValue([]),
     search: vi.fn().mockResolvedValue([]),
   }));
@@ -70,6 +76,10 @@ vi.mock('@slack-cards/core', async () => {
     attribution: false,
   });
 
+  const validateStructural = vi.fn();
+  const validateLimits = vi.fn();
+  const deriveFallback = vi.fn().mockReturnValue('fallback text');
+
   return {
     SchemaError,
     StructuralError,
@@ -81,6 +91,9 @@ vi.mock('@slack-cards/core', async () => {
     Resolver,
     render,
     loadConfig,
+    validateStructural,
+    validateLimits,
+    deriveFallback,
     VERSION: '0.0.0',
   };
 });
@@ -334,6 +347,100 @@ describe('CLI', () => {
     );
   });
 
+  it('passes --theme as the render themeToken', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient, render } = await import('@slack-cards/core');
+
+    (render as ReturnType<typeof vi.fn>).mockReturnValue({
+      blocks: [], attachments: [], text: 'Hello',
+    });
+    const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    await run([
+      'card',
+      '--template', 'announce@1.0.0',
+      '--channel', 'C123',
+      '--data', '{}',
+      '--theme', '#FF0000',
+    ], io);
+
+    expect(render).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ themeToken: '#FF0000' }),
+    );
+  });
+
+  it('lets --theme take precedence over a payload accent field', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient, render } = await import('@slack-cards/core');
+
+    (render as ReturnType<typeof vi.fn>).mockReturnValue({
+      blocks: [], attachments: [], text: 'Hello',
+    });
+    const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    await run([
+      'card',
+      '--template', 'announce@1.0.0',
+      '--channel', 'C123',
+      '--data', '{"accent":"#00FF00"}',
+      '--theme', '#FF0000',
+    ], io);
+
+    expect(render).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ themeToken: '#FF0000' }),
+    );
+  });
+
+  it('applies --theme on the update verb as well', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient, render } = await import('@slack-cards/core');
+
+    (render as ReturnType<typeof vi.fn>).mockReturnValue({
+      blocks: [], attachments: [], text: 'Updated',
+    });
+    const mockUpdate = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: vi.fn(),
+      update: mockUpdate,
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    await run([
+      'update',
+      '--channel', 'C123',
+      '--ts', '1234567890.123456',
+      '--template', 'announce@1.0.0',
+      '--data', '{}',
+      '--theme', '#ABCDEF',
+    ], io);
+
+    expect(render).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ themeToken: '#ABCDEF' }),
+    );
+  });
+
   it('prints assembled JSON and posts nothing under --dry-run', async () => {
     const { run } = await import('./run.js');
     const { SlackClient, render } = await import('@slack-cards/core');
@@ -365,5 +472,320 @@ describe('CLI', () => {
     const output = io.out.join('\n');
     const parsed = JSON.parse(output) as { blocks: unknown[] };
     expect(parsed.blocks).toEqual(mockBlocks);
+  });
+
+  it('posts a plain text message with post --text', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slack-cards/core');
+
+    const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--text', 'Hello world',
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockPost).toHaveBeenCalledWith(expect.objectContaining({ text: 'Hello world', channel: 'C123' }));
+    expect(io.out[0]).toMatch(/^1234567890\.123456\t/);
+  });
+
+  it('posts raw blocks with post --blocks', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slack-cards/core');
+
+    const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: 'raw' } }];
+    const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--blocks', JSON.stringify(blocks),
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockPost).toHaveBeenCalledWith(expect.objectContaining({ blocks, channel: 'C123' }));
+    expect(io.out[0]).toMatch(/^1234567890\.123456\t/);
+  });
+
+  it('reads raw blocks from stdin with post --blocks -', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slack-cards/core');
+
+    const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: 'from stdin' } }];
+    const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    (io as RunIO & { out: string[]; err: string[]; stdin?: string }).stdin = JSON.stringify(blocks);
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--blocks', '-',
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockPost).toHaveBeenCalledWith(expect.objectContaining({ blocks, channel: 'C123' }));
+  });
+
+  it('derives fallback text for raw blocks when no --text is given', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient, deriveFallback } = await import('@slack-cards/core');
+
+    const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: 'hello' } }];
+    (deriveFallback as ReturnType<typeof vi.fn>).mockReturnValue('derived fallback');
+    const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--blocks', JSON.stringify(blocks),
+    ], io);
+
+    expect(code).toBe(0);
+    expect(deriveFallback).toHaveBeenCalled();
+    expect(mockPost).toHaveBeenCalledWith(expect.objectContaining({ text: 'derived fallback' }));
+  });
+
+  it('still posts from a template with post --template', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient, render } = await import('@slack-cards/core');
+
+    (render as ReturnType<typeof vi.fn>).mockReturnValue({
+      blocks: [{ type: 'section', text: { type: 'mrkdwn', text: 'from template' } }],
+      attachments: [],
+      text: 'from template',
+    });
+
+    const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--template', 'announce@1.0.0',
+      '--channel', 'C123',
+      '--data', '{"title":"Hi"}',
+    ], io);
+
+    expect(code).toBe(0);
+    expect(render).toHaveBeenCalled();
+    expect(mockPost).toHaveBeenCalledWith(expect.objectContaining({ channel: 'C123' }));
+    expect(io.out[0]).toMatch(/^1234567890\.123456\t/);
+  });
+
+  it('errors with exit 2 when post has neither text nor blocks nor template', async () => {
+    const { run } = await import('./run.js');
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+    ], io);
+
+    expect(code).toBe(2);
+    expect(io.err.length).toBeGreaterThan(0);
+  });
+
+  it('updates a message with raw blocks via update --blocks', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slack-cards/core');
+
+    const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: 'updated raw' } }];
+    const mockUpdate = vi.fn().mockResolvedValue({ channel: 'C123', ts: '9999999999.000001' });
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: vi.fn(),
+      update: mockUpdate,
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'update',
+      '--channel', 'C123',
+      '--ts', '1234567890.123456',
+      '--blocks', JSON.stringify(blocks),
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      channel: 'C123',
+      ts: '1234567890.123456',
+      blocks,
+    }));
+    expect(io.out[0]).toMatch(/^9999999999\.000001\t/);
+  });
+
+  it('deletes a message with delete --channel --ts', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slack-cards/core');
+
+    const mockDelete = vi.fn().mockResolvedValue(undefined);
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: vi.fn(),
+      update: vi.fn(),
+      delete: mockDelete,
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'delete',
+      '--channel', 'C123',
+      '--ts', '1234567890.123456',
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockDelete).toHaveBeenCalledWith('C123', '1234567890.123456');
+    expect(io.out[0]).toContain('deleted');
+    expect(io.out[0]).toContain('1234567890.123456');
+  });
+
+  it('reacts to a message with react --emoji', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slack-cards/core');
+
+    const mockReact = vi.fn().mockResolvedValue(undefined);
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: mockReact,
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'react',
+      '--channel', 'C123',
+      '--ts', '1234567890.123456',
+      '--emoji', 'thumbsup',
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockReact).toHaveBeenCalledWith('C123', '1234567890.123456', 'thumbsup');
+    expect(io.out[0]).toContain('reacted');
+    expect(io.out[0]).toContain('thumbsup');
+  });
+
+  it('uploads a file with upload --file', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slack-cards/core');
+
+    const dir = mkdtempSync(join(tmpdir(), 'upload-test-'));
+    const filePath = join(dir, 'test.txt');
+    writeFileSync(filePath, 'file contents');
+
+    const mockUploadV2 = vi.fn().mockResolvedValue(undefined);
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: mockUploadV2,
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'upload',
+      '--channel', 'C123',
+      '--file', filePath,
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockUploadV2).toHaveBeenCalledWith(expect.objectContaining({
+      channel: 'C123',
+    }));
+    expect(io.out[0]).toContain('uploaded');
+  });
+
+  it('resolves a channel name to id before posting', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient, Resolver } = await import('@slack-cards/core');
+
+    const mockPost = vi.fn().mockResolvedValue({ channel: 'C456', ts: '1111111111.000001' });
+    const mockResolveChannel = vi.fn().mockResolvedValue('C456');
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+      web: {},
+    }));
+    (Resolver as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      resolveChannel: mockResolveChannel,
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'general',
+      '--text', 'hello',
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockResolveChannel).toHaveBeenCalledWith('general');
+    expect(mockPost).toHaveBeenCalledWith(expect.objectContaining({ channel: 'C456' }));
   });
 });

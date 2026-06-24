@@ -1,0 +1,23 @@
+{
+  "blocks": [
+    { "type": "header", "text": { "type": "plain_text", "text": "{{text_plain:header}}", "emoji": true } },
+    { "type": "section",
+      "text": { "type": "mrkdwn", "text": "{{text_mrkdwn:summary}}\n{{text_mrkdwn:branch_line}}" },
+      "accessory": { "type": "image", "image_url": "{{image_url:ship_image}}", "alt_text": "{{text_plain:ship_alt}}" } },
+    { "type": "section", "fields": [
+      { "type": "mrkdwn", "text": "*Pipeline*\n{{text_plain:pipeline}}" },
+      { "type": "mrkdwn", "text": "*Commits*\n{{text_plain:commits}}" },
+      { "type": "mrkdwn", "text": "*Files*\n{{text_plain:files}}" },
+      { "type": "mrkdwn", "text": "*By*\n{{text_plain:author}}" }
+    ] },
+    { "type": "section", "text": { "type": "mrkdwn", "text": "*Shipped*\n{{text_mrkdwn:shipped_items}}" } },
+    { "type": "context", "elements": [
+      { "type": "image", "image_url": "{{image_url:footer_icon}}", "alt_text": "{{text_plain:footer_alt}}" },
+      { "type": "mrkdwn", "text": "{{text_mrkdwn:footer_text}}" }
+    ] },
+    { "type": "actions", "elements": [
+      { "type": "button", "text": { "type": "plain_text", "text": "{{text_plain:verify_label}}" }, "style": "primary", "url": "{{link_url:verify_url}}" },
+      { "type": "button", "text": { "type": "plain_text", "text": "{{text_plain:pipeline_label}}" }, "url": "{{link_url:pipeline_url}}" }
+    ] }
+  ]
+}

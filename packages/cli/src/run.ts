@@ -9,8 +9,13 @@ import {
   SlackApiError,
   NetworkError,
   RateLimitError,
+  validateStructural,
+  validateLimits,
+  deriveFallback,
 } from '@slack-cards/core';
 import type { RenderOptions, TemplateRef } from '@slack-cards/core';
+
+type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -27,6 +32,7 @@ export interface RunIO {
   stdout: (line: string) => void;
   stderr: (line: string) => void;
   env: RunEnv;
+  stdin?: string;
 }
 
 function buildFsAdapter() {
@@ -115,7 +121,17 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
   const verb = argv[0];
 
   if (!verb) {
-    io.stderr('Usage: slack-cards <card|post|update|react|upload|schedule> [options]');
+    io.stderr(
+      'Usage: slack-cards <card|post|update|delete|react|upload> [options]\n' +
+      '\n' +
+      'Verbs:\n' +
+      '  post    --channel <c> (--template <n@v> | --blocks <json>|-  | --text <t>)\n' +
+      '  update  --channel <c> --ts <ts> (--template | --blocks | --text)\n' +
+      '  delete  --channel <c> --ts <ts>\n' +
+      '  react   --channel <c> --ts <ts> --emoji <name>\n' +
+      '  upload  --channel <c> --file <path> [--title <t>] [--comment <c>]\n' +
+      '  card    --template <name@ver> --channel <c> [--data <json>] (alias for post --template)\n',
+    );
     return 2;
   }
 
@@ -126,10 +142,17 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
       data: { type: 'string' },
       channel: { type: 'string' },
       ts: { type: 'string' },
+      blocks: { type: 'string' },
+      text: { type: 'string' },
+      emoji: { type: 'string' },
+      file: { type: 'string' },
+      title: { type: 'string' },
+      comment: { type: 'string' },
       'dry-run': { type: 'boolean' },
       'fail-mode': { type: 'string' },
       version: { type: 'string' },
       catalog: { type: 'string' },
+      theme: { type: 'string' },
     },
     allowPositionals: true,
     strict: false,
@@ -223,7 +246,7 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
       attribution,
       partials: loadPartials(catalogPath),
     };
-    const themeToken = themeTokenFrom(payload);
+    const themeToken = (values['theme'] as string | undefined) ?? themeTokenFrom(payload);
     if (themeToken !== undefined) renderOptions.themeToken = themeToken;
 
     let rendered;
@@ -275,22 +298,16 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
     });
   }
 
-  if (verb === 'update') {
-    const tsArg = values['ts'] as string | undefined;
-    if (!tsArg) {
-      io.stderr('--ts is required for update command');
-      return 2;
-    }
-    const channelArg = values['channel'] as string | undefined;
-    if (!channelArg) {
-      io.stderr('--channel is required for update command');
-      return 2;
-    }
+  type MessageSource =
+    | { kind: 'template'; blocks: unknown[]; text: string; attachments: unknown[] }
+    | { kind: 'raw'; blocks: JsonValue[]; text: string; attachments: JsonValue[] }
+    | { kind: 'text'; text: string }
+    | { kind: 'error'; code: number };
 
+  async function resolveMessageSource(): Promise<MessageSource> {
     const templateStr = values['template'] as string | undefined;
-    let blocks: unknown[] | undefined;
-    let text: string | undefined;
-    let updateAttachments: object[] = [];
+    const blocksArg = values['blocks'] as string | undefined;
+    const textArg = values['text'] as string | undefined;
 
     if (templateStr) {
       const [templateName, templateVersion = '1.0.0'] = templateStr.split('@');
@@ -304,7 +321,7 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
           payload = JSON.parse(dataStr) as Record<string, unknown>;
         } catch {
           io.stderr('--data must be valid JSON');
-          return 2;
+          return { kind: 'error', code: 2 };
         }
       }
       const templateRef: TemplateRef = {
@@ -313,44 +330,228 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
         version: templateVersion,
       };
       const fsAdapter = buildFsAdapter();
-      const updateRenderOptions: RenderOptions = {
+      const opts: RenderOptions = {
         fs: fsAdapter,
         attribution,
         partials: loadPartials(catalogPath),
       };
-      const updateThemeToken = themeTokenFrom(payload);
-      if (updateThemeToken !== undefined) updateRenderOptions.themeToken = updateThemeToken;
+      const themeToken = (values['theme'] as string | undefined) ?? themeTokenFrom(payload);
+      if (themeToken !== undefined) opts.themeToken = themeToken;
       try {
-        const rendered = render(templateRef, payload, updateRenderOptions);
-        blocks = rendered.blocks;
-        text = rendered.text;
-        updateAttachments = rendered.attachments;
+        const rendered = render(templateRef, payload, opts);
+        return { kind: 'template', blocks: rendered.blocks, text: rendered.text, attachments: rendered.attachments };
       } catch (err) {
         if (err instanceof SchemaError || err instanceof StructuralError || err instanceof LimitError) {
           io.stderr(`Validation error: ${(err as Error).message}`);
-          return 2;
+          return { kind: 'error', code: 2 };
         }
         if (failMode === 'block') {
           const code = exitCodeForError(err);
           io.stderr(`Error: ${(err as Error).message}`);
-          return code;
+          return { kind: 'error', code };
         }
         io.stderr(`Warning: ${(err as Error).message}`);
-        return 0;
+        return { kind: 'error', code: 0 };
       }
+    }
+
+    if (blocksArg !== undefined) {
+      let rawJson: string;
+      if (blocksArg === '-') {
+        rawJson = io.stdin ?? '';
+      } else {
+        rawJson = blocksArg;
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(rawJson);
+      } catch {
+        io.stderr('--blocks must be valid JSON');
+        return { kind: 'error', code: 2 };
+      }
+      let blocks: JsonValue[];
+      let attachments: JsonValue[] = [];
+      if (Array.isArray(parsed)) {
+        blocks = parsed as JsonValue[];
+      } else if (typeof parsed === 'object' && parsed !== null && 'blocks' in parsed) {
+        const obj = parsed as { blocks?: JsonValue[]; attachments?: JsonValue[] };
+        blocks = Array.isArray(obj['blocks']) ? obj['blocks'] : [];
+        attachments = Array.isArray(obj['attachments']) ? obj['attachments'] : [];
+      } else {
+        io.stderr('--blocks must be a JSON array or object with a "blocks" key');
+        return { kind: 'error', code: 2 };
+      }
+      try {
+        validateStructural({ blocks: blocks as unknown as object[], attachments: attachments as unknown as object[] });
+        validateLimits({ blocks: blocks as unknown as object[], attachments: attachments as unknown as object[] });
+      } catch (err) {
+        if (err instanceof StructuralError || err instanceof LimitError) {
+          io.stderr(`Validation error: ${(err as Error).message}`);
+          return { kind: 'error', code: 2 };
+        }
+        throw err;
+      }
+      const fallbackText = (values['text'] as string | undefined) ?? deriveFallback(blocks);
+      return { kind: 'raw', blocks, text: fallbackText, attachments };
+    }
+
+    if (textArg !== undefined) {
+      return { kind: 'text', text: textArg };
+    }
+
+    return { kind: 'error', code: -1 };
+  }
+
+  if (verb === 'post') {
+    const channelArg = values['channel'] as string | undefined;
+    if (!channelArg) {
+      io.stderr('--channel is required for post command');
+      return 2;
+    }
+
+    const source = await resolveMessageSource();
+    if (source.kind === 'error') {
+      if (source.code === -1) {
+        io.stderr('post requires one of --template, --blocks, or --text');
+        return 2;
+      }
+      return source.code;
     }
 
     return execWithFailMode(async () => {
       const client = new SlackClient(realToken);
-      const updateArgs = Object.assign(
-        { channel: channelArg, ts: tsArg },
-        text !== undefined ? { text } : {},
-        blocks !== undefined ? { blocks } : {},
-        updateAttachments.length > 0 ? { attachments: updateAttachments } : {},
-      );
+      const channel = await resolveChannel(client, channelArg);
+
+      let postArgs: { channel: string; text: string; blocks?: unknown[]; attachments?: unknown[] };
+      if (source.kind === 'text') {
+        postArgs = { channel, text: source.text };
+      } else {
+        postArgs = Object.assign(
+          { channel, text: source.text, blocks: source.blocks },
+          source.attachments.length > 0 ? { attachments: source.attachments } : {},
+        );
+      }
+      const result = await client.post(postArgs);
+      const permalink = buildPermalink(result.channel, result.ts);
+      io.stdout(`${result.ts}\t${permalink}`);
+      return 0;
+    });
+  }
+
+  if (verb === 'update') {
+    const tsArg = values['ts'] as string | undefined;
+    if (!tsArg) {
+      io.stderr('--ts is required for update command');
+      return 2;
+    }
+    const channelArg = values['channel'] as string | undefined;
+    if (!channelArg) {
+      io.stderr('--channel is required for update command');
+      return 2;
+    }
+
+    const source = await resolveMessageSource();
+
+    return execWithFailMode(async () => {
+      const client = new SlackClient(realToken);
+      let updateArgs: { channel: string; ts: string; text?: string; blocks?: unknown[]; attachments?: unknown[] };
+      if (source.kind === 'error') {
+        updateArgs = { channel: channelArg, ts: tsArg };
+      } else if (source.kind === 'text') {
+        updateArgs = { channel: channelArg, ts: tsArg, text: source.text };
+      } else {
+        updateArgs = Object.assign(
+          { channel: channelArg, ts: tsArg, text: source.text, blocks: source.blocks },
+          source.attachments.length > 0 ? { attachments: source.attachments } : {},
+        );
+      }
       const result = await client.update(updateArgs);
       const permalink = buildPermalink(result.channel, result.ts);
       io.stdout(`${result.ts}\t${permalink}`);
+      return 0;
+    });
+  }
+
+  if (verb === 'delete') {
+    const channelArg = values['channel'] as string | undefined;
+    if (!channelArg) {
+      io.stderr('--channel is required for delete command');
+      return 2;
+    }
+    const tsArg = values['ts'] as string | undefined;
+    if (!tsArg) {
+      io.stderr('--ts is required for delete command');
+      return 2;
+    }
+
+    return execWithFailMode(async () => {
+      const client = new SlackClient(realToken);
+      const channel = await resolveChannel(client, channelArg);
+      await client.delete(channel, tsArg);
+      io.stdout(`deleted\t${tsArg}`);
+      return 0;
+    });
+  }
+
+  if (verb === 'react') {
+    const channelArg = values['channel'] as string | undefined;
+    if (!channelArg) {
+      io.stderr('--channel is required for react command');
+      return 2;
+    }
+    const tsArg = values['ts'] as string | undefined;
+    if (!tsArg) {
+      io.stderr('--ts is required for react command');
+      return 2;
+    }
+    const emojiArg = values['emoji'] as string | undefined;
+    if (!emojiArg) {
+      io.stderr('--emoji is required for react command');
+      return 2;
+    }
+
+    return execWithFailMode(async () => {
+      const client = new SlackClient(realToken);
+      const channel = await resolveChannel(client, channelArg);
+      await client.react(channel, tsArg, emojiArg);
+      io.stdout(`reacted\t${emojiArg}`);
+      return 0;
+    });
+  }
+
+  if (verb === 'upload') {
+    const channelArg = values['channel'] as string | undefined;
+    if (!channelArg) {
+      io.stderr('--channel is required for upload command');
+      return 2;
+    }
+    const fileArg = values['file'] as string | undefined;
+    if (!fileArg) {
+      io.stderr('--file is required for upload command');
+      return 2;
+    }
+
+    return execWithFailMode(async () => {
+      const client = new SlackClient(realToken);
+      const channel = await resolveChannel(client, channelArg);
+      const fileContent = readFileSync(fileArg);
+      const uploadArgs: {
+        channel: string;
+        file: Buffer;
+        filename: string;
+        title?: string;
+        initial_comment?: string;
+      } = {
+        channel,
+        file: fileContent,
+        filename: fileArg.split('/').pop() ?? fileArg,
+      };
+      const titleArg = values['title'] as string | undefined;
+      if (titleArg) uploadArgs.title = titleArg;
+      const commentArg = values['comment'] as string | undefined;
+      if (commentArg) uploadArgs.initial_comment = commentArg;
+      await client.uploadV2(uploadArgs);
+      io.stdout(`uploaded\t${fileArg}`);
       return 0;
     });
   }

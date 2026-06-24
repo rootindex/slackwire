@@ -13,3 +13,6 @@ export type { FindOrCreateArgs, FindOrCreateResult } from './idempotency.js';
 export { normalize, parityDiff } from './parity-normalize.js';
 export { discoverParityCases } from './parity-cases.js';
 export type { ParityCase } from './parity-cases.js';
+export { validateStructural } from './structural.js';
+export { validateLimits } from './limits.js';
+export { deriveFallback } from './fallback.js';

@@ -1,0 +1,19 @@
+{
+  "header": "text_plain",
+  "summary": "text_mrkdwn",
+  "branch_line": "text_mrkdwn",
+  "ship_image": "image_url",
+  "ship_alt": "text_plain",
+  "pipeline": "text_plain",
+  "commits": "text_plain",
+  "files": "text_plain",
+  "author": "text_plain",
+  "shipped_items": "text_mrkdwn",
+  "footer_icon": "image_url",
+  "footer_alt": "text_plain",
+  "footer_text": "text_mrkdwn",
+  "verify_label": "text_plain",
+  "verify_url": "link_url",
+  "pipeline_label": "text_plain",
+  "pipeline_url": "link_url"
+}
