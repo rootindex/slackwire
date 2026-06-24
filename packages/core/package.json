@@ -2,9 +2,23 @@
   "name": "@slackwire/core",
   "version": "0.1.0",
   "description": "Slack client, template engine, and render pipeline",
+  "license": "MIT",
+  "keywords": ["slack", "slack-blocks", "template", "mcp", "library"],
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/REPLACE-ME/slackwire.git"
+  },
+  "homepage": "https://gitlab.com/REPLACE-ME/slackwire",
+  "bugs": {
+    "url": "https://gitlab.com/REPLACE-ME/slackwire/-/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "engines": {
+    "node": ">=20"
+  },
+  "files": ["dist", "README.md"],
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -14,7 +28,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "@slack/web-api": "^7.0.0",

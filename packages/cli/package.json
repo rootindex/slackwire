@@ -2,9 +2,23 @@
   "name": "slackwire",
   "version": "0.1.0",
   "description": "Command-line tool for sending, updating, and managing Slack messages",
+  "license": "MIT",
+  "keywords": ["slack", "cli", "slack-cli", "slack-message", "ci", "gitlab", "devops"],
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/REPLACE-ME/slackwire.git"
+  },
+  "homepage": "https://gitlab.com/REPLACE-ME/slackwire",
+  "bugs": {
+    "url": "https://gitlab.com/REPLACE-ME/slackwire/-/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "engines": {
+    "node": ">=20"
+  },
+  "files": ["dist", "README.md"],
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -17,7 +31,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && node bundle.mjs",
     "test": "vitest run",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "@slackwire/core": "workspace:*"

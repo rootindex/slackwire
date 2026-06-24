@@ -216,7 +216,48 @@ slackwire post --channel C0XXXXXXXXX --text "hi" --fail-mode block
 
 ## MCP server
 
-The same core engine is exposed as a Model Context Protocol server (`@slackwire/mcp`), so an MCP-capable assistant can post cards, morph them, react, upload, and resolve channel names through tool calls instead of the shell. See [packages/mcp/README.md](packages/mcp/README.md).
+slackwire has two faces over one core. The CLI is the terminal/CI front end; the MCP server (`@slackwire/mcp`) is the front end for MCP-capable assistants. Both call the same `@slackwire/core` engine, so escaping, limit guards, and fallback derivation apply identically no matter which face you use.
+
+The MCP package now ships a runnable stdio server, not just a library. Installing it provides a `slackwire-mcp` bin (entry `dist/main.js`) that starts a Model Context Protocol server over stdio. It resolves the Slack token from the environment in the same order the CLI uses, first match wins: `SLACK_TOKEN`, then `SLACK_TOKEN_BASE64` (base64-decoded), then `SLACK_TOKEN_FILE` (a path to a token file). Diagnostic logs go to stderr, prefixed `[slackwire-mcp]`.
+
+### Run it
+
+```sh
+export SLACK_TOKEN=xoxb-...
+slackwire-mcp           # once @slackwire/mcp is installed
+
+# or without installing
+npx -y slackwire-mcp
+```
+
+### Wire it into an MCP client
+
+Point a Claude Desktop / Claude Code style MCP client at the bin and feed it a token through the environment:
+
+```json
+{
+  "mcpServers": {
+    "slackwire": {
+      "command": "npx",
+      "args": ["-y", "slackwire-mcp"],
+      "env": { "SLACK_TOKEN_FILE": "/absolute/path/to/.slack_token" }
+    }
+  }
+}
+```
+
+### Tools it exposes
+
+| Tool | Purpose |
+|---|---|
+| `post_card` | Render a template card and post it to a channel. |
+| `update_card` | Render a template card and morph an existing message in place. |
+| `post` | Send a plain-text message or raw blocks. |
+| `react` | Add a reaction emoji to a message. |
+| `upload` | Upload a file to a channel. |
+| `resolve` | Resolve a channel or user name to its Slack ID. |
+
+Same core as the CLI, so per-kind escaping, structural and Slack limit guards, and the non-blocking fallback behave identically through the tools. See [packages/mcp/README.md](packages/mcp/README.md).
 
 ## Project layout
 
@@ -224,11 +265,15 @@ The same core engine is exposed as a Model Context Protocol server (`@slackwire/
 packages/
   core/      @slackwire/core  : render engine, escaping, limit guards, Slack client, resolver
   cli/       slackwire        : the command-line front end (bundled to dist/bundle.cjs)
-  mcp/       @slackwire/mcp    : MCP server over the core
+  mcp/       @slackwire/mcp    : runnable stdio MCP server over the core (slackwire-mcp bin)
 templates/   versioned template catalog + shared partials + parity/golden fixtures
 docs/        gitlab-integration.md, parity-evals.md, and this index
 ```
 
+## Deploying and releasing
+
+GitLab CI runs lint, test, and build plus managed security scans (SAST, secret detection, dependency and container scanning) on every push, then builds and pushes the distroless image to the GitLab Container Registry. The pipeline dogfoods slackwire by posting and morphing its own Slack build card. On a version tag it publishes `slackwire`, `@slackwire/core`, and `@slackwire/mcp` to npm with provenance via OIDC trusted publishing (no stored token), and GitLab Pages deploys `docs/site/` from the default branch. A GitLab to GitHub push mirror keeps GitHub a read-only mirror of the canonical GitLab repo. See [`.gitlab-ci.yml`](.gitlab-ci.yml) and [docs/deployment.md](docs/deployment.md) for the full setup.
+
 ## License
 
-MIT (placeholder, to be confirmed).
+MIT. See [LICENSE](./LICENSE).

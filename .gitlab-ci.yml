@@ -1,0 +1,297 @@
+# =============================================================================
+# slackwire :: GitLab CI/CD pipeline
+# =============================================================================
+# This pipeline builds, tests, scans, dockerizes, dogfoods (posts a morphing
+# Slack card about itself), publishes to npm with provenance, and deploys docs.
+#
+# It is written to be CORRECT and to DEGRADE GRACEFULLY before all external
+# setup exists. Concretely:
+#   - The dogfood stage is a NO-OP unless $SLACK_TOKEN is configured.
+#   - The release stage only runs on version tags (vX.Y.Z).
+#   - The security templates are inert until the matching GitLab security
+#     features are enabled on the project.
+#
+# See docs/deployment.md for the human checklist of external prerequisites
+# (GitLab project + GitHub push mirror, CI/CD variables, security features,
+# npm Trusted Publishing, Pages).
+# =============================================================================
+
+stages:
+  - test
+  - security
+  - build
+  - dogfood
+  - release
+  - pages
+
+# -----------------------------------------------------------------------------
+# Global variables
+# -----------------------------------------------------------------------------
+variables:
+  # pnpm store lives inside the project dir so GitLab CI can cache it.
+  PNPM_STORE: "$CI_PROJECT_DIR/.pnpm-store"
+  # Pin the pnpm major to match the repo (Dockerfile uses pnpm@9, lockfile v9).
+  PNPM_VERSION: "9"
+
+# =============================================================================
+# Managed security templates (security stage)
+# =============================================================================
+# These are GitLab-maintained templates. The jobs they define are assigned to
+# the `test` stage by default, so we re-stage them into `security` below.
+#
+# PREREQUISITE: each of these requires the corresponding security feature to be
+# enabled/licensed on the GitLab project (Settings -> Security & Compliance, or
+# Ultimate-tier features for some scanners). Until then the jobs are simply
+# absent or no-op; they will not break the pipeline.
+#
+# Template paths follow the current GitLab "Jobs/*" convention.
+include:
+  - template: Jobs/SAST.gitlab-ci.yml                 # Semgrep-based SAST
+  - template: Jobs/Secret-Detection.gitlab-ci.yml     # leaked-credential scan
+  - template: Jobs/Dependency-Scanning.gitlab-ci.yml  # vulnerable deps
+  - template: Jobs/Container-Scanning.gitlab-ci.yml    # scans the built image
+
+# Re-stage the managed jobs into the `security` stage. (The templates default
+# them to `test`; we override only the stage, leaving their logic intact.)
+sast:
+  stage: security
+secret_detection:
+  stage: security
+dependency_scanning:
+  stage: security
+# Container scanning targets the image built in the `build` stage. We point it
+# at the per-commit tag pushed by the `build:image` job below.
+container_scanning:
+  stage: security
+  variables:
+    CS_IMAGE: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  needs:
+    - job: build:image
+      artifacts: false
+
+# =============================================================================
+# TEST STAGE
+# =============================================================================
+# Runs on every push and merge request. Installs the workspace with a frozen
+# lockfile, then lints, builds, and tests every package recursively.
+test:
+  stage: test
+  image: node:22
+  # Cache the pnpm content-addressable store keyed on the lockfile so installs
+  # are fast and deterministic across pipelines.
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+  before_script:
+    - corepack enable || npm install -g pnpm@${PNPM_VERSION}
+    - pnpm config set store-dir "$PNPM_STORE"
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm -r lint
+    - pnpm -r build
+    - pnpm -r test
+  rules:
+    # Run on merge requests and on any branch push (and tags).
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+
+# =============================================================================
+# BUILD STAGE
+# =============================================================================
+# Builds the distroless image from the repo Dockerfile and pushes it to the
+# GitLab Container Registry.
+#
+# Build engine choice: docker:dind with `docker build`. Kaniko also works for
+# distroless and needs no privileged runner, but docker-in-docker is simpler to
+# reason about and is the GitLab default documented path. If your runners are
+# unprivileged, switch this job to kaniko.
+#
+# PREREQUISITE: the GitLab Container Registry must be enabled on the project
+# (it is on by default for gitlab.com). $CI_REGISTRY, $CI_REGISTRY_IMAGE,
+# $CI_REGISTRY_USER, and $CI_REGISTRY_PASSWORD are injected automatically by
+# GitLab for the job's own project registry.
+build:image:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  script:
+    # Always tag the immutable per-commit image.
+    - docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" .
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+    # On a version tag, also publish the tag name and `latest`.
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        docker tag "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" "$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG"
+        docker tag "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" "$CI_REGISTRY_IMAGE:latest"
+        docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG"
+        docker push "$CI_REGISTRY_IMAGE:latest"
+      fi
+  rules:
+    # Build on the default branch and on version tags only (not on every MR).
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+
+# =============================================================================
+# DOGFOOD STAGE  ::  slackwire posting a build-status card about itself
+# =============================================================================
+# This is the project eating its own dog food: it uses the freshly built image
+# to post a "running" Slack card, then live-morphs it to "passed" or "failed"
+# when the pipeline finishes. It mirrors the canonical recipe in
+# docs/gitlab-integration.md.
+#
+# REQUIRED CI/CD VARIABLES (set in Settings -> CI/CD -> Variables):
+#   SLACK_TOKEN    Slack bot (xoxb-) or user (xoxp-) token. Mark masked+protected.
+#   SLACK_CHANNEL  Target channel ID (e.g. C0EXAMPLE123) or name.
+#
+# GRACEFUL DEGRADATION: every dogfood job is gated on `rules: - if: '$SLACK_TOKEN'`.
+# With no token configured, none of these jobs are created and the pipeline is
+# unaffected. This is why a fresh GitLab import "just works" before secrets exist.
+#
+# IMAGE: we run the image we just built ($CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA).
+# That image's ENTRYPOINT is the slackwire CLI, so `script:` args are passed
+# straight to slackwire. (Alternatively, use a node:22 image and `npx slackwire`.)
+#
+# NOTE: the distroless image ships only the bundled CLI, not the templates/
+# catalog, so we morph with plain --text rather than --template here. Mount the
+# catalog and set SLACK_CATALOG if you want the cicd-live template instead.
+
+dogfood:running:
+  stage: dogfood
+  # `.pre`-style behaviour: this job runs early via stage ordering, posts the
+  # initial card, and hands the Slack ts forward through a dotenv artifact.
+  image: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  script:
+    - |
+      slackwire post \
+        --channel "$SLACK_CHANNEL" \
+        --text ":hourglass_flowing_sand: slackwire pipeline *running* for \`$CI_COMMIT_REF_NAME\` (pipeline $CI_PIPELINE_ID)" \
+        | tee slack.out
+    - echo "SLACK_TS=$(cut -f1 slack.out)" >> dogfood.env
+  artifacts:
+    reports:
+      dotenv: dogfood.env
+  rules:
+    - if: '$SLACK_TOKEN'
+
+dogfood:passed:
+  stage: dogfood
+  image: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  # `needs:` is correct on the SUCCESS path: it pulls the dotenv ts forward.
+  needs:
+    - job: dogfood:running
+      artifacts: true
+    - job: test
+      artifacts: false
+  script:
+    - |
+      slackwire update \
+        --channel "$SLACK_CHANNEL" \
+        --ts "$SLACK_TS" \
+        --text ":white_check_mark: slackwire pipeline *passed* for \`$CI_COMMIT_REF_NAME\` (pipeline $CI_PIPELINE_ID)"
+  rules:
+    - if: '$SLACK_TOKEN'
+      when: on_success
+
+dogfood:failed:
+  stage: dogfood
+  image: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  # CRITICAL GOTCHA (see docs/gitlab-integration.md): use `dependencies:` here,
+  # NOT `needs:`. A downstream job that `needs:` a FAILED job enters the amber
+  # "blocked" state and never runs, so the failure card would never be posted.
+  # `dependencies:` only controls artifact download, not execution ordering, so
+  # this job still fires on `when: on_failure`.
+  dependencies:
+    - dogfood:running
+  script:
+    - |
+      slackwire update \
+        --channel "$SLACK_CHANNEL" \
+        --ts "$SLACK_TS" \
+        --text ":x: slackwire pipeline *failed* for \`$CI_COMMIT_REF_NAME\` (pipeline $CI_PIPELINE_ID)"
+  rules:
+    - if: '$SLACK_TOKEN'
+      when: on_failure
+
+# =============================================================================
+# RELEASE STAGE  ::  npm publish with Trusted Publishing (OIDC, no stored token)
+# =============================================================================
+# Publishes @slackwire/core, @slackwire/mcp, and slackwire to the public npm
+# registry on every version tag (vX.Y.Z). NO NPM_TOKEN is stored anywhere:
+# authentication is short-lived OIDC via npm Trusted Publishing, and provenance
+# attestations are emitted automatically.
+#
+# PREREQUISITES (all configured ONCE, externally, before the first tag):
+#   1. On npmjs.com, add a "trusted publisher" for EACH package
+#      (slackwire, @slackwire/core, @slackwire/mcp) pointing at THIS GitLab
+#      project and THIS job (release:npm). See docs/deployment.md.
+#      Docs: https://docs.npmjs.com/trusted-publishers/
+#   2. Toolchain: npm CLI >= 11.5.1 and Node >= 22.14 are required for trusted
+#      publishing. We start from node:22 and force-upgrade npm below.
+#   3. The GitLab repo must be PUBLIC for npm provenance to be accepted.
+#   4. The `id_tokens:` block below mints the OIDC token npm expects. The audience
+#      MUST be `npm:registry.npmjs.org` per npm's trusted-publishing spec.
+release:npm:
+  stage: release
+  image: node:22
+  # OIDC: GitLab injects $NPM_ID_TOKEN as a signed JWT with the given audience.
+  # npm reads this env var automatically during `publish` under trusted publishing.
+  id_tokens:
+    NPM_ID_TOKEN:
+      aud: "npm:registry.npmjs.org"
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+  before_script:
+    # Trusted publishing needs a very recent npm; force the latest to be safe.
+    - npm install -g npm@latest
+    - node --version
+    - npm --version   # must be >= 11.5.1
+    - corepack enable || npm install -g pnpm@${PNPM_VERSION}
+    - pnpm config set store-dir "$PNPM_STORE"
+    - pnpm install --frozen-lockfile
+    - pnpm -r build
+  script:
+    # `pnpm -r publish` walks the workspace and publishes every public package.
+    # --no-git-checks: the tag commit may not be on a branch in CI.
+    # --access public: required for first publish of scoped packages.
+    # Provenance is emitted automatically under trusted publishing (no flags).
+    - pnpm -r publish --access public --no-git-checks
+  rules:
+    # Only ever runs on a pushed version tag.
+    - if: '$CI_COMMIT_TAG'
+
+# =============================================================================
+# PAGES STAGE  ::  GitLab Pages docs site
+# =============================================================================
+# GitLab Pages serves whatever the `pages` job leaves in `public/`. We publish
+# the existing self-contained HTML docs (docs/site/index.html) as-is.
+#
+# NOTE: this serves the already-built, self-contained HTML documentation. A
+# VitePress (or similar) build is a future upgrade; when that lands, replace the
+# copy step with the static-site build and emit into `public/`.
+#
+# PREREQUISITE: GitLab Pages must be enabled (on by default for gitlab.com).
+pages:
+  stage: pages
+  image: node:22
+  script:
+    - mkdir -p public
+    - cp -r docs/site/. public/
+  artifacts:
+    paths:
+      - public
+  rules:
+    # Deploy docs only from the default branch.
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
