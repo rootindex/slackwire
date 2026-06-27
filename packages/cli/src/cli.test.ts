@@ -104,7 +104,7 @@ vi.mock('@slackwire/core', async () => {
     validateLimits,
     deriveFallback,
     resolveTokenFrom,
-    VERSION: '0.0.0',
+    VERSION: '0.1.0',
   };
 });
 
