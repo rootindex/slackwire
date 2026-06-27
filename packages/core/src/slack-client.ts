@@ -35,6 +35,7 @@ export interface HistoryArgs {
 export interface SlackMessage {
   ts: string;
   text?: string;
+  channel?: string;
   blocks?: unknown[];
   attachments?: unknown[];
   metadata?: MessageMetadata;
@@ -181,9 +182,10 @@ export class SlackClient {
       const res = await this.web.search.messages(searchArgs);
       const matches = (res.messages as { matches?: unknown[] } | undefined)?.matches ?? [];
       return matches.map((m) => {
-        const msg = m as { ts?: string; text?: string; metadata?: MessageMetadata };
+        const msg = m as { ts?: string; text?: string; channel?: { id?: string }; metadata?: MessageMetadata };
         const result: SlackMessage = { ts: msg.ts ?? '' };
         if (msg.text !== undefined) result.text = msg.text;
+        if (msg.channel?.id !== undefined) result.channel = msg.channel.id;
         if (msg.metadata !== undefined) result.metadata = msg.metadata;
         return result;
       });

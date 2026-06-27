@@ -46,4 +46,22 @@ describe('validateStructural', () => {
     ];
     expect(() => validateStructural({ blocks: badColor, attachments: [] })).toThrow(StructuralError);
   });
+
+  it('caps attachment blocks at 50 in attribution mode', () => {
+    const tooMany = Array.from({ length: 51 }, (_, i) => ({
+      type: 'section',
+      text: { type: 'mrkdwn', text: `block ${i}` },
+    }));
+    const attachments = [{ color: '#36c5f0', blocks: tooMany }];
+    expect(() => validateStructural({ blocks: [], attachments })).toThrow(StructuralError);
+    expect(() => validateStructural({ blocks: [], attachments })).toThrow('50');
+  });
+
+  it('requires alt_text on image blocks nested inside an attachment', () => {
+    const attachments = [
+      { color: '#36c5f0', blocks: [{ type: 'image', image_url: 'https://example.com/i.png' }] },
+    ];
+    expect(() => validateStructural({ blocks: [], attachments })).toThrow(StructuralError);
+    expect(() => validateStructural({ blocks: [], attachments })).toThrow('alt_text');
+  });
 });

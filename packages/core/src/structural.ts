@@ -81,12 +81,16 @@ function checkImageAltText(block: BlockRecord, index: number): void {
   }
 }
 
-export function validateStructural(output: RenderOutput): void {
-  if (output.blocks.length > 50) {
+function checkBlockCap(blocks: object[], label: string): void {
+  if (blocks.length > 50) {
     throw new StructuralError(
-      `blocks exceed Slack limit of 50: got ${output.blocks.length} blocks`,
+      `${label} exceed Slack limit of 50: got ${blocks.length} blocks`,
     );
   }
+}
+
+export function validateStructural(output: RenderOutput): void {
+  checkBlockCap(output.blocks, 'blocks');
 
   output.blocks.forEach((block, index) => {
     if (!isRecord(block)) return;
@@ -97,5 +101,13 @@ export function validateStructural(output: RenderOutput): void {
   output.attachments.forEach((attachment, index) => {
     if (!isRecord(attachment)) return;
     walkAndValidate(attachment, `attachment[${index}]`);
+
+    const attachmentBlocks = attachment['blocks'];
+    if (!Array.isArray(attachmentBlocks)) return;
+    checkBlockCap(attachmentBlocks as object[], `attachment[${index}].blocks`);
+    attachmentBlocks.forEach((block, blockIndex) => {
+      if (!isRecord(block)) return;
+      checkImageAltText(block, blockIndex);
+    });
   });
 }

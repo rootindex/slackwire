@@ -151,4 +151,44 @@ describe('mcp server', () => {
       stdoutSpy.mockRestore();
     }
   });
+
+  it('returns a clean tool error for malformed blocks JSON without posting', async () => {
+    const slackClient = makeMockClient();
+    const resolver = makeMockResolver({ general: 'C123' });
+    const { client, cleanup } = await createTestPair(slackClient, resolver);
+    try {
+      const result = await client.callTool({
+        name: 'post_card',
+        arguments: { channel: 'general', blocks: '{not valid json' },
+      });
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content[0]!.text).toContain('Invalid blocks');
+      expect(slackClient.post).not.toHaveBeenCalled();
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('rejects an over-limit blocks array before posting', async () => {
+    const slackClient = makeMockClient();
+    const resolver = makeMockResolver({ general: 'C123' });
+    const { client, cleanup } = await createTestPair(slackClient, resolver);
+    try {
+      const tooMany = Array.from({ length: 51 }, (_, i) => ({
+        type: 'section',
+        text: { type: 'mrkdwn', text: `block ${i}` },
+      }));
+      const result = await client.callTool({
+        name: 'post_card',
+        arguments: { channel: 'general', blocks: JSON.stringify(tooMany) },
+      });
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content[0]!.text).toContain('Validation error');
+      expect(slackClient.post).not.toHaveBeenCalled();
+    } finally {
+      await cleanup();
+    }
+  });
 });

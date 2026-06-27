@@ -82,11 +82,8 @@ describe('idempotency', () => {
     mock.search.mockResolvedValue([
       {
         ts: '222.001',
-        text: 'old',
-        metadata: {
-          event_type: 'slack_card',
-          event_payload: { dedupe_key: 'pipeline-42/job-7', template_ref: 'alert@2.1.0' },
-        },
+        text: 'Build pipeline-42/job-7 succeeded',
+        channel: 'C123',
       },
     ]);
 
@@ -100,6 +97,23 @@ describe('idempotency', () => {
     expect(mock.history).not.toHaveBeenCalled();
     expect(result.ts).toBe('222.001');
     expect(result.found).toBe(true);
+  });
+
+  it('scopes the user-token search match to the target channel and dedupe marker in text', async () => {
+    mock.search.mockResolvedValue([
+      { ts: '900.000', text: 'pipeline-42/job-7 in another channel', channel: 'C-OTHER' },
+      { ts: '901.000', text: 'unrelated message', channel: 'C123' },
+      { ts: '902.000', text: 'pipeline-42/job-7 resolved', channel: 'C123' },
+    ]);
+
+    const result = await findOrCreate({
+      ...BASE_ARGS,
+      client: mock as unknown as SlackClient,
+      tokenType: 'user',
+    });
+
+    expect(result.found).toBe(true);
+    expect(result.ts).toBe('902.000');
   });
 
   it('updates the existing message instead of posting when found', async () => {

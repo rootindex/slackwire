@@ -104,23 +104,6 @@ function processBlock(block: JsonValue, ctx: Record<string, unknown>, partials: 
 
   const obj = block as JsonObject;
 
-  if ('$use' in obj) {
-    const name = obj['$use'] as string;
-    return resolvePartial(name, partials);
-  }
-
-  if ('$when' in obj) {
-    const condition = obj['$when'] as string;
-    const value = resolvePath(ctx, condition);
-    if (!isTruthy(value)) return [];
-
-    const rest: JsonObject = {};
-    for (const [k, v] of Object.entries(obj)) {
-      if (k !== '$when') rest[k] = v;
-    }
-    return [rest as JsonValue];
-  }
-
   if ('$each' in obj) {
     const listPath = obj['$each'] as string;
     const alias = obj['$as'] as string;
@@ -133,10 +116,32 @@ function processBlock(block: JsonValue, ctx: Record<string, unknown>, partials: 
       if (k !== '$each' && k !== '$as') template[k] = v;
     }
 
-    return items.map(item => {
+    const expanded: JsonValue[] = [];
+    for (const item of items) {
       const scopeCtx = { ...ctx, [alias]: item };
-      return substituteTokens(template as JsonValue, scopeCtx);
-    });
+      const substituted = substituteTokens(template as JsonValue, scopeCtx);
+      for (const produced of processBlock(substituted, scopeCtx, partials)) {
+        expanded.push(produced);
+      }
+    }
+    return expanded;
+  }
+
+  if ('$when' in obj) {
+    const condition = obj['$when'] as string;
+    const value = resolvePath(ctx, condition);
+    if (!isTruthy(value)) return [];
+
+    const rest: JsonObject = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (k !== '$when') rest[k] = v;
+    }
+    return processBlock(rest as JsonValue, ctx, partials);
+  }
+
+  if ('$use' in obj) {
+    const name = obj['$use'] as string;
+    return resolvePartial(name, partials);
   }
 
   return [obj as JsonValue];

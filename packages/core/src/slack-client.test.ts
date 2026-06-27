@@ -169,4 +169,25 @@ describe('SlackClient', () => {
     const proxyClient = factory(TOKEN, 'http://proxy.corp:3128');
     expect(proxyClient).toBeInstanceOf(SlackClient);
   });
+
+  it('maps search.messages matches into channel-scoped messages without relying on metadata', async () => {
+    mock.search.messages.mockResolvedValue({
+      ok: true,
+      messages: {
+        matches: [
+          {
+            ts: '333.000',
+            text: 'Deploy pipeline-42/job-7 finished',
+            channel: { id: 'C999', name: 'releases' },
+          },
+        ],
+      },
+    });
+
+    const messages = await client.search('pipeline-42/job-7');
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ ts: '333.000', channel: 'C999' });
+    expect(messages[0]!.text).toContain('pipeline-42/job-7');
+    expect(messages[0]!.metadata).toBeUndefined();
+  });
 });

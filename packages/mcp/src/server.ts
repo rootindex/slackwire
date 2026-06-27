@@ -4,11 +4,41 @@ import {
   CallToolRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import { validateStructural, validateLimits, StructuralError, LimitError } from '@slackwire/core';
 import type { SlackClient, Resolver } from '@slackwire/core';
 
 const log = (msg: string): void => {
   process.stderr.write(`[slackwire-mcp] ${msg}\n`);
 };
+
+function toolError(message: string) {
+  return {
+    content: [{ type: 'text' as const, text: message }],
+    isError: true,
+  };
+}
+
+function parseBlocks(raw: string): { blocks: unknown[] } | { error: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { error: 'Invalid blocks: must be a JSON-encoded array' };
+  }
+  if (!Array.isArray(parsed)) {
+    return { error: 'Invalid blocks: must be a JSON array' };
+  }
+  try {
+    validateStructural({ blocks: parsed as object[], attachments: [] });
+    validateLimits({ blocks: parsed as object[], attachments: [] });
+  } catch (err) {
+    if (err instanceof StructuralError || err instanceof LimitError) {
+      return { error: `Validation error: ${err.message}` };
+    }
+    throw err;
+  }
+  return { blocks: parsed as unknown[] };
+}
 
 const TOOLS = [
   {
@@ -118,10 +148,11 @@ export function createMcpServer(
 
     if (name === 'post_card') {
       const channel = (await resolver.resolveChannel(a['channel']!)) ?? a['channel']!;
-      const blocks = JSON.parse(a['blocks']!) as unknown[];
+      const parsed = parseBlocks(a['blocks']!);
+      if ('error' in parsed) return toolError(parsed.error);
       const result = await slackClient.post({
         channel,
-        blocks,
+        blocks: parsed.blocks,
         ...(a['text'] !== undefined ? { text: a['text'] } : {}),
       });
       const permalink = `https://slack.com/archives/${result.channel}/p${result.ts.replace('.', '')}`;
@@ -137,11 +168,12 @@ export function createMcpServer(
 
     if (name === 'update_card') {
       const channel = (await resolver.resolveChannel(a['channel']!)) ?? a['channel']!;
-      const blocks = JSON.parse(a['blocks']!) as unknown[];
+      const parsed = parseBlocks(a['blocks']!);
+      if ('error' in parsed) return toolError(parsed.error);
       const result = await slackClient.update({
         channel,
         ts: a['ts']!,
-        blocks,
+        blocks: parsed.blocks,
         ...(a['text'] !== undefined ? { text: a['text'] } : {}),
       });
       return {

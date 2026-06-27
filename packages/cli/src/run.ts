@@ -2,6 +2,7 @@ import { parseArgs } from 'node:util';
 import {
   SlackClient,
   Resolver,
+  resolveTokenFrom,
   render,
   SchemaError,
   StructuralError,
@@ -163,17 +164,11 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
 
   const processEnv = io.env as Record<string, string | undefined>;
   const attribution = processEnv['SLACK_ATTRIBUTION'] === 'true';
-  const tokenFile = processEnv['SLACK_TOKEN_FILE'];
-  const fileToken = tokenFile ? readFileSync(tokenFile, 'utf8').trim() : undefined;
-  const rawToken = processEnv['SLACK_TOKEN'] ?? processEnv['SLACK_TOKEN_BASE64'] ?? fileToken;
-  if (!rawToken && !dryRun) {
+  const realToken = resolveTokenFrom(processEnv) ?? '';
+  if (!realToken && !dryRun) {
     io.stderr('No Slack token configured');
     return 2;
   }
-
-  const realToken = processEnv['SLACK_TOKEN_BASE64']
-    ? Buffer.from(processEnv['SLACK_TOKEN_BASE64'], 'base64').toString('utf8')
-    : (processEnv['SLACK_TOKEN'] ?? fileToken ?? '');
 
   async function execWithFailMode(fn: () => Promise<number>): Promise<number> {
     try {

@@ -66,7 +66,7 @@ export function validatePayload(
   detectNumericCoercions(schema, beforeNumeric, data, coercions);
 
   for (const msg of coercions) {
-    console.log(msg);
+    console.error(msg);
   }
 
   if (!valid) {

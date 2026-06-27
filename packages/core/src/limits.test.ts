@@ -65,4 +65,25 @@ describe('validateLimits', () => {
     expect(() => validateLimits({ blocks, attachments: [] })).toThrow(LimitError);
     expect(() => validateLimits({ blocks, attachments: [] })).toThrow('3000');
   });
+
+  it('throws when an attachment block section text exceeds 3000 in attribution mode', () => {
+    const longText = 'a'.repeat(3001);
+    const attachments = [
+      { color: '#36c5f0', blocks: [{ type: 'section', text: { type: 'mrkdwn', text: longText } }] },
+    ];
+    expect(() => validateLimits({ blocks: [], attachments })).toThrow(LimitError);
+    expect(() => validateLimits({ blocks: [], attachments })).toThrow('3000');
+  });
+
+  it('counts attachment content toward the soft 38000 total', () => {
+    const chunkSize = 3000;
+    const numBlocks = Math.ceil(SOFT_TOTAL / chunkSize) + 1;
+    const blocks = Array.from({ length: numBlocks }, () => ({
+      type: 'section',
+      text: { type: 'mrkdwn', text: 'a'.repeat(chunkSize) },
+    }));
+    const attachments = [{ color: '#36c5f0', blocks }];
+    expect(() => validateLimits({ blocks: [], attachments })).toThrow(LimitError);
+    expect(() => validateLimits({ blocks: [], attachments })).toThrow('38000');
+  });
 });

@@ -9,17 +9,25 @@ export interface SlackConfig {
   attribution: boolean;
 }
 
-function resolveToken(): string {
-  const raw = process.env['SLACK_TOKEN'];
-  if (raw) return raw;
+export type TokenEnv = Record<string, string | undefined>;
 
-  const b64 = process.env['SLACK_TOKEN_BASE64'];
-  if (b64) return Buffer.from(b64, 'base64').toString('utf8');
+export function resolveTokenFrom(env: TokenEnv): string | undefined {
+  const direct = env['SLACK_TOKEN'];
+  if (direct) return direct.trim();
 
-  const file = process.env['SLACK_TOKEN_FILE'];
+  const b64 = env['SLACK_TOKEN_BASE64'];
+  if (b64) return Buffer.from(b64, 'base64').toString('utf8').trim();
+
+  const file = env['SLACK_TOKEN_FILE'];
   if (file) return readFileSync(file, 'utf8').trim();
 
-  throw new ConfigError('No Slack token configured');
+  return undefined;
+}
+
+function resolveToken(): string {
+  const token = resolveTokenFrom(process.env);
+  if (!token) throw new ConfigError('No Slack token configured');
+  return token;
 }
 
 function resolveTokenType(token: string): TokenType {
