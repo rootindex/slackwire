@@ -1,6 +1,10 @@
 # Slack user token — NEVER commit. Live xoxp secret used for local testing.
 .slack_token
 
+# AI session handover notes: local only, never commit (internal context)
+HANDOVER.md
+HANDOVER-BUILD.md
+
 # Node / build
 node_modules/
 dist/
