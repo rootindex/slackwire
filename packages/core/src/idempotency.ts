@@ -35,12 +35,17 @@ async function findViaHistory(
   );
 }
 
-async function findViaSearch(client: SlackClient, dedupeKey: string) {
+async function findViaSearch(
+  client: SlackClient,
+  channel: string,
+  dedupeKey: string,
+) {
   const messages = await client.search(dedupeKey);
   return messages.find(
     (m) =>
-      m.metadata?.event_type === EVENT_TYPE &&
-      (m.metadata.event_payload as Record<string, unknown>)['dedupe_key'] === dedupeKey,
+      m.channel === channel &&
+      typeof m.text === 'string' &&
+      m.text.includes(dedupeKey),
   );
 }
 
@@ -49,11 +54,11 @@ export async function findOrCreate(args: FindOrCreateArgs): Promise<FindOrCreate
 
   const existing =
     tokenType === 'user'
-      ? await findViaSearch(client, dedupeKey)
+      ? await findViaSearch(client, channel, dedupeKey)
       : await findViaHistory(client, channel, dedupeKey, historyLimit);
 
   if (existing) {
-    const payload = existing.metadata!.event_payload as Record<string, unknown>;
+    const payload = (existing.metadata?.event_payload as Record<string, unknown> | undefined) ?? {};
     const pinnedTemplateRef = (payload['template_ref'] as string | undefined) ?? templateRef;
 
     const metadata = {

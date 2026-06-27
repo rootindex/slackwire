@@ -90,7 +90,26 @@ describe('validatePayload', () => {
     expect(msg).toContain('author');
   });
 
-  it('logs each coercion it performs', () => {
+  it('logs each coercion it performs to stderr', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        retries: { type: 'number' },
+        enabled: { type: 'boolean' },
+      },
+      additionalProperties: false,
+    };
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    validatePayload(schema, { retries: '5', enabled: 'true' });
+
+    expect(errorSpy).toHaveBeenCalledTimes(2);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('retries'));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('enabled'));
+  });
+
+  it('never writes diagnostics to stdout during validation', () => {
     const schema = {
       type: 'object',
       properties: {
@@ -101,12 +120,13 @@ describe('validatePayload', () => {
     };
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     validatePayload(schema, { retries: '5', enabled: 'true' });
 
-    expect(logSpy).toHaveBeenCalledTimes(2);
-    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('retries'));
-    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('enabled'));
+    expect(logSpy).not.toHaveBeenCalled();
+    expect(stdoutSpy).not.toHaveBeenCalled();
   });
 
   it('leaves the validated date object untouched and still coerces sibling scalar fields', () => {

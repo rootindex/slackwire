@@ -70,11 +70,31 @@ function measureBlocks(blocks: object[]): number {
   return JSON.stringify(blocks).length;
 }
 
+function checkBlockLengths(blocks: object[]): void {
+  blocks.forEach((block, index) => {
+    if (!isRecord(block)) return;
+    checkSectionText(block, index);
+    checkHeaderText(block, index);
+    checkButtonText(block, index);
+  });
+}
+
+function attachmentBlocksOf(attachments: object[]): object[][] {
+  const result: object[][] = [];
+  for (const attachment of attachments) {
+    if (!isRecord(attachment)) continue;
+    const blocks = attachment['blocks'];
+    if (Array.isArray(blocks)) result.push(blocks as object[]);
+  }
+  return result;
+}
+
 function checkSoftTotal(output: RenderOutput): void {
   const states = output.morphStates ?? [output.blocks];
+  const attachmentsSize = measureBlocks(output.attachments);
   let maxSize = 0;
   for (const state of states) {
-    const size = measureBlocks(state);
+    const size = measureBlocks(state) + attachmentsSize;
     if (size > maxSize) maxSize = size;
   }
   if (maxSize > SOFT_TOTAL_MAX) {
@@ -85,12 +105,9 @@ function checkSoftTotal(output: RenderOutput): void {
 }
 
 export function validateLimits(output: RenderOutput): void {
-  output.blocks.forEach((block, index) => {
-    if (!isRecord(block)) return;
-    checkSectionText(block, index);
-    checkHeaderText(block, index);
-    checkButtonText(block, index);
-  });
-
+  checkBlockLengths(output.blocks);
+  for (const attachmentBlocks of attachmentBlocksOf(output.attachments)) {
+    checkBlockLengths(attachmentBlocks);
+  }
   checkSoftTotal(output);
 }

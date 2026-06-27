@@ -71,4 +71,14 @@ describe('interpolate', () => {
     expect(result.blocks).toHaveLength(1);
     expect(result.attachments).toEqual([]);
   });
+
+  it('throws on a residual malformed placeholder such as an uppercase kind', () => {
+    const skeleton = {
+      blocks: [{ type: 'section', text: { type: 'mrkdwn', text: '{{TEXT:message}}' } }],
+    };
+    const payload: Record<string, unknown> = { message: 'Hi' };
+    const schema: Record<string, string> = { message: 'text_mrkdwn' };
+    expect(() => interpolate(skeleton, payload, schema)).toThrow(SchemaError);
+    expect(() => interpolate(skeleton, payload, schema)).toThrow(/\{\{TEXT:message\}\}|Unresolved/);
+  });
 });

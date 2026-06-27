@@ -128,4 +128,45 @@ describe('assemble', () => {
       expect(el).not.toBeNull();
     }
   });
+
+  it('expands a directive nested inside a truthy $when block', () => {
+    const skeleton = {
+      blocks: [{ $when: 'showHeader', $use: 'header' }],
+    };
+    const partials: PartialMap = {
+      header: [{ type: 'header', text: { type: 'plain_text', text: 'Nested Header' } }],
+    };
+    const result = assemble(skeleton, { showHeader: true }, partials);
+    expect(result.blocks).toHaveLength(1);
+    expect((result.blocks as Block[])[0]!['type']).toBe('header');
+  });
+
+  it('drops a $when block whose nested $use would otherwise expand when falsy', () => {
+    const skeleton = {
+      blocks: [{ $when: 'showHeader', $use: 'header' }],
+    };
+    const partials: PartialMap = {
+      header: [{ type: 'header', text: { type: 'plain_text', text: 'Nested Header' } }],
+    };
+    const result = assemble(skeleton, { showHeader: false }, partials);
+    expect(result.blocks).toHaveLength(0);
+  });
+
+  it('evaluates a $when directive nested inside each $each iteration', () => {
+    const skeleton = {
+      blocks: [
+        {
+          $each: 'items',
+          $as: 'item',
+          $when: 'item.active',
+          type: 'section',
+          text: { type: 'mrkdwn', text: '{{item.name}}' },
+        },
+      ],
+    };
+    const ctx = { items: [{ name: 'Alice', active: true }, { name: 'Bob', active: false }] };
+    const result = assemble(skeleton, ctx, {});
+    expect(result.blocks).toHaveLength(1);
+    expect((result.blocks as Block[])[0]!['text']).toEqual({ type: 'mrkdwn', text: 'Alice' });
+  });
 });

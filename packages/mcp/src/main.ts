@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { SlackClient, Resolver } from '@slackwire/core';
+import { SlackClient, Resolver, resolveTokenFrom } from '@slackwire/core';
 import { createMcpServer } from './server.js';
 
 function err(msg: string): never {
@@ -10,25 +9,16 @@ function err(msg: string): never {
 }
 
 function resolveToken(): string {
-  const env = process.env;
-
-  if (env['SLACK_TOKEN']) {
-    return env['SLACK_TOKEN'];
+  let token: string | undefined;
+  try {
+    token = resolveTokenFrom(process.env);
+  } catch {
+    err(`Cannot read SLACK_TOKEN_FILE: ${process.env['SLACK_TOKEN_FILE']}`);
   }
-
-  if (env['SLACK_TOKEN_BASE64']) {
-    return Buffer.from(env['SLACK_TOKEN_BASE64'], 'base64').toString('utf8');
+  if (!token) {
+    err('No Slack token configured. Set SLACK_TOKEN, SLACK_TOKEN_BASE64, or SLACK_TOKEN_FILE.');
   }
-
-  if (env['SLACK_TOKEN_FILE']) {
-    try {
-      return readFileSync(env['SLACK_TOKEN_FILE'], 'utf8').trim();
-    } catch {
-      err(`Cannot read SLACK_TOKEN_FILE: ${env['SLACK_TOKEN_FILE']}`);
-    }
-  }
-
-  err('No Slack token configured. Set SLACK_TOKEN, SLACK_TOKEN_BASE64, or SLACK_TOKEN_FILE.');
+  return token;
 }
 
 function noopCache() {

@@ -80,6 +80,14 @@ vi.mock('@slackwire/core', async () => {
   const validateLimits = vi.fn();
   const deriveFallback = vi.fn().mockReturnValue('fallback text');
 
+  const { readFileSync } = await import('node:fs');
+  const resolveTokenFrom = vi.fn((env: Record<string, string | undefined>): string | undefined => {
+    if (env['SLACK_TOKEN']) return env['SLACK_TOKEN'].trim();
+    if (env['SLACK_TOKEN_BASE64']) return Buffer.from(env['SLACK_TOKEN_BASE64'], 'base64').toString('utf8').trim();
+    if (env['SLACK_TOKEN_FILE']) return readFileSync(env['SLACK_TOKEN_FILE'], 'utf8').trim();
+    return undefined;
+  });
+
   return {
     SchemaError,
     StructuralError,
@@ -94,6 +102,7 @@ vi.mock('@slackwire/core', async () => {
     validateStructural,
     validateLimits,
     deriveFallback,
+    resolveTokenFrom,
     VERSION: '0.0.0',
   };
 });

@@ -40,7 +40,7 @@ function interpolateString(
     );
   }
 
-  return str.replace(TYPED_TOKEN, (_match, kind: string, path: string) => {
+  const interpolated = str.replace(TYPED_TOKEN, (_match, kind: string, path: string) => {
     const key = path.trim();
     const declaredKind = schema[key] ?? kind;
     const rawValue = payload[key];
@@ -49,6 +49,15 @@ function interpolateString(
 
     return escape(declaredKind as PlaceholderKind, rawValue as PlaceholderValue);
   });
+
+  const residual = interpolated.match(/\{\{[^}]*\}\}/g);
+  if (residual) {
+    throw new SchemaError(
+      `Unresolved placeholder(s) after interpolation: ${residual.join(', ')}. Use {{kind:path}} with a lowercase kind.`,
+    );
+  }
+
+  return interpolated;
 }
 
 function walkNode(

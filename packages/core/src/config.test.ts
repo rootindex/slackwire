@@ -2,8 +2,15 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadConfig } from './config.js';
+import { loadConfig, resolveTokenFrom } from './config.js';
 import { ConfigError } from './errors.js';
+
+function mkTokenFile(contents: string): string {
+  const dir = mkdtempSync(join(tmpdir(), 'slk-'));
+  const file = join(dir, 'token');
+  writeFileSync(file, contents);
+  return file;
+}
 
 describe('loadConfig', () => {
   const originalEnv = process.env;
@@ -65,5 +72,44 @@ describe('loadConfig', () => {
   it('throws a clear error when no token is configured', () => {
     expect(() => loadConfig()).toThrow(ConfigError);
     expect(() => loadConfig()).toThrow('No Slack token configured');
+  });
+});
+
+describe('resolveTokenFrom', () => {
+  it('prefers SLACK_TOKEN over base64 and file', () => {
+    const fileEnv = mkTokenFile('xoxb-from-file');
+    const token = resolveTokenFrom({
+      SLACK_TOKEN: 'xoxb-direct',
+      SLACK_TOKEN_BASE64: Buffer.from('xoxb-from-b64').toString('base64'),
+      SLACK_TOKEN_FILE: fileEnv,
+    });
+    expect(token).toBe('xoxb-direct');
+  });
+
+  it('prefers base64 over the file when SLACK_TOKEN is absent', () => {
+    const fileEnv = mkTokenFile('xoxb-from-file');
+    const token = resolveTokenFrom({
+      SLACK_TOKEN_BASE64: Buffer.from('xoxb-from-b64').toString('base64'),
+      SLACK_TOKEN_FILE: fileEnv,
+    });
+    expect(token).toBe('xoxb-from-b64');
+  });
+
+  it('falls back to the file when only SLACK_TOKEN_FILE is set', () => {
+    const fileEnv = mkTokenFile('xoxb-from-file');
+    expect(resolveTokenFrom({ SLACK_TOKEN_FILE: fileEnv })).toBe('xoxb-from-file');
+  });
+
+  it('trims whitespace from every source', () => {
+    const fileEnv = mkTokenFile('  xoxb-file-padded  \n');
+    expect(resolveTokenFrom({ SLACK_TOKEN: '  xoxb-direct\n' })).toBe('xoxb-direct');
+    expect(
+      resolveTokenFrom({ SLACK_TOKEN_BASE64: Buffer.from('  xoxb-b64-padded \n').toString('base64') }),
+    ).toBe('xoxb-b64-padded');
+    expect(resolveTokenFrom({ SLACK_TOKEN_FILE: fileEnv })).toBe('xoxb-file-padded');
+  });
+
+  it('returns undefined when no source is configured', () => {
+    expect(resolveTokenFrom({})).toBeUndefined();
   });
 });
