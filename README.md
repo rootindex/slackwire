@@ -54,17 +54,20 @@ slackwire is invoked as `slackwire <verb> [options]`. Running it with no verb pr
 
 ```
 Verbs:
-  post    --channel <c> (--template <n@v> | --blocks <json>|-  | --text <t>)
-  update  --channel <c> --ts <ts> (--template | --blocks | --text)
-  delete  --channel <c> --ts <ts>
-  react   --channel <c> --ts <ts> --emoji <name>
-  upload  --channel <c> --file <path> [--title <t>] [--comment <c>]
-  card    --template <name@ver> --channel <c> [--data <json>] (alias for post --template)
+  post      --channel <c> (--template <n@v> | --blocks <json>|-  | --text <t>)
+  update    --channel <c> --ts <ts> (--template | --blocks | --text)
+  delete    --channel <c> --ts <ts>
+  react     --channel <c> --ts <ts> --emoji <name>
+  upload    --channel <c> --file <path> [--title <t>] [--comment <c>]
+  card      --template <name@ver> --channel <c> [--data <json>] (alias for post --template)
+  search    --query <q> [--limit <n>]
+  read      --channel <c> [--limit <n>]
+  schedule  --channel <c> --at <epoch|ISO> (--template | --blocks | --text)
 ```
 
-For `post` and `update`, the message body comes from exactly one of three sources: `--template`, `--blocks`, or `--text`.
+For `post`, `update`, and `schedule`, the message body comes from exactly one of three sources: `--template`, `--blocks`, or `--text`. `search` queries `search.messages` and prints one `<ts>\t<channel>\t<text>` line per match; `read` pulls `conversations.history` and prints one `<ts>\t<text>` line per message; `schedule` posts later via `chat.scheduleMessage`, taking `--at` as a Unix epoch (seconds) or an ISO 8601 date.
 
-`--dry-run` works on `post`, `update`, and `card`. It renders the message from `--template` / `--blocks` / `--text` and prints the assembled JSON (`{blocks, text, attachments?}`) to stdout, without a token and without calling Slack. Use it to preview a message or validate a template in CI.
+`--dry-run` works on `post`, `update`, `card`, and `schedule`. It renders the message from `--template` / `--blocks` / `--text` and prints the assembled JSON (`{blocks, text, attachments?}`, plus `post_at` for `schedule`) to stdout, without a token and without calling Slack. Use it to preview a message or validate a template in CI.
 
 ### Post plain text
 
@@ -93,18 +96,36 @@ When you post raw blocks, slackwire validates the structure and Slack limits bef
 
 ### Post from a template
 
-Templates render typed placeholders into Block Kit. Provide the template as `name@version` (version defaults to `1.0.0`) and feed it data with `--data`:
+Templates render typed placeholders into Block Kit. Provide the template as `name@version` (version defaults to `1.0.0`) and feed it data with `--data`. Every field declared in the template's `schema.json` is required and unknown fields are rejected, so the `--data` object must supply each field exactly. The bundled `ci-cd@1.0.0` template declares 16 fields:
 
 ```sh
 slackwire post --channel C0XXXXXXXXX \
   --template ci-cd@1.0.0 \
-  --data '{"title":"CI passed","ref":"main","author":"Naledi"}'
+  --data '{
+    "title": "CI passed: healthcart-v2 #2451",
+    "ref": "feature/checkout-fix",
+    "short_sha": "a1b9f2c",
+    "description": "Fix Stitch amount overflow",
+    "author": "Naledi",
+    "icon_url": "https://placehold.co/72x72/2eb67d/ffffff/png?text=PASS",
+    "icon_alt": "passed",
+    "steps_text": "Install -> Lint -> Test -> Build -> Deploy",
+    "progress_bar": "5 of 5 - deployed to staging",
+    "runner": "ci-3",
+    "test_count": "142",
+    "coverage": "84.2%",
+    "finished_at": { "epoch": 1750000000, "format": "{time}", "fallback": "now" },
+    "primary_label": "Open staging",
+    "primary_url": "https://staging.example.com/healthcart-v2",
+    "logs_url": "https://ci.example.com/healthcart-v2/2451/logs"
+  }'
 ```
 
-`card` is an alias for `post --template`:
+`card` is an alias for `post --template` and takes the same `--data` (the full 16-field object shown above):
 
 ```sh
-slackwire card --template ci-cd@1.0.0 --channel C0XXXXXXXXX --data '{...}'
+slackwire card --template ci-cd@1.0.0 --channel C0XXXXXXXXX \
+  --data '{ ...the 16 ci-cd fields shown above... }'
 ```
 
 Add `--theme '#2eb67d'` to set an accent color (see Limits & gotchas for the caveat). The template catalog defaults to `./templates` and can be overridden with `--catalog <path>` or the `SLACK_CATALOG` env var.
@@ -114,13 +135,15 @@ Add `--theme '#2eb67d'` to set an accent color (see Limits & gotchas for the cav
 `update` rewrites a message in place by its timestamp. The canonical CI pattern is to post a "running" card, capture its `ts`, then morph it to "passed" or "failed" when the job finishes:
 
 ```sh
-# post the running card and capture the timestamp (first tab-separated field)
-TS=$(slackwire post --channel C0XXXXXXXXX --template ci-cd@1.0.0 \
-       --data '{"status":"running"}' | cut -f1)
+# the same 16 ci-cd fields, once with running values and once with passed values
+RUNNING='{"title":"CI running: healthcart-v2 #2451","ref":"feature/checkout-fix","short_sha":"a1b9f2c","description":"Fix Stitch amount overflow","author":"Naledi","icon_url":"https://placehold.co/72x72/ecb22e/ffffff/png?text=RUN","icon_alt":"running","steps_text":"Install -> Lint -> Test -> Build -> Deploy","progress_bar":"3 of 5 - running","runner":"ci-3","test_count":"142","coverage":"84.2%","finished_at":{"epoch":1750000000,"format":"{time}","fallback":"now"},"primary_label":"Open pipeline","primary_url":"https://ci.example.com/healthcart-v2/2451","logs_url":"https://ci.example.com/healthcart-v2/2451/logs"}'
+PASSED='{"title":"CI passed: healthcart-v2 #2451","ref":"feature/checkout-fix","short_sha":"a1b9f2c","description":"Fix Stitch amount overflow","author":"Naledi","icon_url":"https://placehold.co/72x72/2eb67d/ffffff/png?text=PASS","icon_alt":"passed","steps_text":"Install -> Lint -> Test -> Build -> Deploy","progress_bar":"5 of 5 - deployed to staging","runner":"ci-3","test_count":"142","coverage":"84.2%","finished_at":{"epoch":1750000000,"format":"{time}","fallback":"now"},"primary_label":"Open staging","primary_url":"https://staging.example.com/healthcart-v2","logs_url":"https://ci.example.com/healthcart-v2/2451/logs"}'
 
-# later, morph the same message
-slackwire update --channel C0XXXXXXXXX --ts "$TS" --template ci-cd@1.0.0 \
-  --data '{"status":"passed"}'
+# post the running card and capture the timestamp (first tab-separated field)
+TS=$(slackwire post --channel C0XXXXXXXXX --template ci-cd@1.0.0 --data "$RUNNING" | cut -f1)
+
+# later, morph the same message to the passed state
+slackwire update --channel C0XXXXXXXXX --ts "$TS" --template ci-cd@1.0.0 --data "$PASSED"
 ```
 
 `update` also prints `<ts>\t<permalink>` on success. See [docs/gitlab-integration.md](docs/gitlab-integration.md) for the full pipeline flow.
@@ -216,7 +239,7 @@ slackwire post --channel C0XXXXXXXXX --text "hi" --fail-mode block
 
 ## MCP server
 
-slackwire has two faces over one core. The CLI is the terminal/CI front end; the MCP server (`@slackwire/mcp`) is the front end for MCP-capable assistants. Both call the same `@slackwire/core` engine, so escaping, limit guards, and fallback derivation apply identically no matter which face you use.
+slackwire has two faces over one core. The CLI is the terminal/CI front end; the MCP server (`@slackwire/mcp`) is the front end for MCP-capable assistants. Both call the same `@slackwire/core` Slack client and, for cards, the same structural and Slack-limit validators. They differ in one important way: the CLI renders templates and escapes values, while the MCP server does neither, so its `post_card` / `update_card` tools expect pre-rendered, pre-escaped Block Kit.
 
 The MCP package now ships a runnable stdio server, not just a library. Installing it provides a `slackwire-mcp` bin (entry `dist/main.js`) that starts a Model Context Protocol server over stdio. It resolves the Slack token from the environment in the same order the CLI uses, first match wins: `SLACK_TOKEN`, then `SLACK_TOKEN_BASE64` (base64-decoded), then `SLACK_TOKEN_FILE` (a path to a token file). Diagnostic logs go to stderr, prefixed `[slackwire-mcp]`.
 
@@ -250,14 +273,14 @@ Point a Claude Desktop / Claude Code style MCP client at the bin and feed it a t
 
 | Tool | Purpose |
 |---|---|
-| `post_card` | Render a template card and post it to a channel. |
-| `update_card` | Render a template card and morph an existing message in place. |
-| `post` | Send a plain-text message or raw blocks. |
+| `post_card` | Post pre-rendered Block Kit `blocks` (a JSON-encoded array) to a channel. Validates block structure and Slack limits before sending; does **not** render templates. |
+| `update_card` | Morph an existing message in place by `ts`, using pre-rendered `blocks` (a JSON-encoded array). Same validation; no template rendering. |
+| `post` | Send a plain-text message (text only, no blocks). |
 | `react` | Add a reaction emoji to a message. |
 | `upload` | Upload a file to a channel. |
 | `resolve` | Resolve a channel or user name to its Slack ID. |
 
-Same core as the CLI, so per-kind escaping, structural and Slack limit guards, and the non-blocking fallback behave identically through the tools. See [packages/mcp/README.md](packages/mcp/README.md).
+`post_card` and `update_card` run the same `@slackwire/core` structural and Slack-limit validators the CLI runs, so a malformed or oversized `blocks` array is rejected before it reaches Slack. Unlike the CLI, the MCP server does not render templates, escape values, or derive fallback text: render and escape with `@slackwire/core` first, then hand the resulting blocks to the tools. See [packages/mcp/README.md](packages/mcp/README.md).
 
 ## Project layout
 
@@ -266,8 +289,9 @@ packages/
   core/      @slackwire/core  : render engine, escaping, limit guards, Slack client, resolver
   cli/       slackwire        : the command-line front end (bundled to dist/bundle.cjs)
   mcp/       @slackwire/mcp    : runnable stdio MCP server over the core (slackwire-mcp bin)
-templates/   versioned template catalog + shared partials + parity/golden fixtures
-docs/        gitlab-integration.md, parity-evals.md, and this index
+templates/   default template catalog (ci-cd, incident, deploy) + shared partials + parity/golden fixtures
+examples/    extra example templates (cicd-live, incident-live, deploy-approval, k8s-rollout, and more) — see examples/README.md
+docs/        gitlab-integration.md, parity-evals.md, deployment.md, and the docs/site index
 ```
 
 ## Deploying and releasing
