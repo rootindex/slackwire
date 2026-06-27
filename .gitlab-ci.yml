@@ -70,7 +70,7 @@ container_scanning:
       artifacts: false
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
 
 # =============================================================================
 # TEST STAGE
@@ -152,6 +152,34 @@ guard:commit-email:
     - if: '$CI_COMMIT_TAG'
 
 # =============================================================================
+# DEPENDENCY AUDIT  ::  pnpm audit gate (no GitLab license required)
+# =============================================================================
+# Fails the pipeline on a known HIGH or CRITICAL advisory in the dependency
+# tree. Unlike the managed Dependency-Scanning template, `pnpm audit` needs no
+# GitLab security license, so it works on any tier.
+audit:dependencies:
+  stage: test
+  # allow_failure: residual transitive vite GHSA-fx2h-pf6j-xcff advisory has no available fix.
+  allow_failure: true
+  image: node:22
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+  before_script:
+    - corepack enable || npm install -g pnpm@${PNPM_VERSION}
+    - pnpm config set store-dir "$PNPM_STORE"
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm audit --audit-level=high
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+
+# =============================================================================
 # BUILD STAGE
 # =============================================================================
 # Builds the distroless image from the repo Dockerfile and pushes it to the
@@ -188,9 +216,9 @@ build:image:
         docker push "$CI_REGISTRY_IMAGE:latest"
       fi
   rules:
-    # Build on the default branch and on version tags only (not on every MR).
+    # Build on the default branch and on semver version tags only (not on every MR).
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
 
 # =============================================================================
 # DOGFOOD STAGE  ::  slackwire posting a build-status card about itself
@@ -208,22 +236,36 @@ build:image:
 # With no token configured, none of these jobs are created and the pipeline is
 # unaffected. This is why a fresh GitLab import "just works" before secrets exist.
 #
-# IMAGE: we run the image we just built ($CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA).
-# That image's ENTRYPOINT is the slackwire CLI, so `script:` args are passed
-# straight to slackwire. (Alternatively, use a node:22 image and `npx slackwire`.)
+# IMAGE: these jobs run on node:22 (a shell-capable image) and invoke the CLI
+# we build in-job. The distroless image from the Dockerfile has NO shell, so a
+# `script:` block cannot run there. slackwire is also not published to npm yet,
+# so we cannot `npx slackwire` from the registry; instead we build the workspace
+# (corepack + pnpm install + pnpm -r build) and run the freshly built bundle at
+# packages/cli/dist/bundle.cjs directly with node.
 #
-# NOTE: the distroless image ships only the bundled CLI, not the templates/
-# catalog, so we morph with plain --text rather than --template here. Mount the
-# catalog and set SLACK_CATALOG if you want the cicd-live template instead.
+# NOTE: we morph with plain --text rather than --template here to keep the job
+# self-contained (no catalog wiring). Set SLACK_CATALOG and pass --template if
+# you want the cicd-live template instead.
 
 dogfood:running:
   stage: dogfood
   # `.pre`-style behaviour: this job runs early via stage ordering, posts the
   # initial card, and hands the Slack ts forward through a dotenv artifact.
-  image: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  image: node:22
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+  before_script:
+    - corepack enable || npm install -g pnpm@${PNPM_VERSION}
+    - pnpm config set store-dir "$PNPM_STORE"
+    - pnpm install --frozen-lockfile
+    - pnpm -r build
   script:
     - |
-      slackwire post \
+      node packages/cli/dist/bundle.cjs post \
         --channel "$SLACK_CHANNEL" \
         --text ":hourglass_flowing_sand: slackwire pipeline *running* for \`$CI_COMMIT_REF_NAME\` (pipeline $CI_PIPELINE_ID)" \
         | tee slack.out
@@ -236,16 +278,27 @@ dogfood:running:
 
 dogfood:passed:
   stage: dogfood
-  image: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  image: node:22
   # `needs:` is correct on the SUCCESS path: it pulls the dotenv ts forward.
   needs:
     - job: dogfood:running
       artifacts: true
     - job: test
       artifacts: false
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+  before_script:
+    - corepack enable || npm install -g pnpm@${PNPM_VERSION}
+    - pnpm config set store-dir "$PNPM_STORE"
+    - pnpm install --frozen-lockfile
+    - pnpm -r build
   script:
     - |
-      slackwire update \
+      node packages/cli/dist/bundle.cjs update \
         --channel "$SLACK_CHANNEL" \
         --ts "$SLACK_TS" \
         --text ":white_check_mark: slackwire pipeline *passed* for \`$CI_COMMIT_REF_NAME\` (pipeline $CI_PIPELINE_ID)"
@@ -255,7 +308,7 @@ dogfood:passed:
 
 dogfood:failed:
   stage: dogfood
-  image: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  image: node:22
   # CRITICAL GOTCHA (see docs/gitlab-integration.md): use `dependencies:` here,
   # NOT `needs:`. A downstream job that `needs:` a FAILED job enters the amber
   # "blocked" state and never runs, so the failure card would never be posted.
@@ -263,9 +316,20 @@ dogfood:failed:
   # this job still fires on `when: on_failure`.
   dependencies:
     - dogfood:running
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+  before_script:
+    - corepack enable || npm install -g pnpm@${PNPM_VERSION}
+    - pnpm config set store-dir "$PNPM_STORE"
+    - pnpm install --frozen-lockfile
+    - pnpm -r build
   script:
     - |
-      slackwire update \
+      node packages/cli/dist/bundle.cjs update \
         --channel "$SLACK_CHANNEL" \
         --ts "$SLACK_TS" \
         --text ":x: slackwire pipeline *failed* for \`$CI_COMMIT_REF_NAME\` (pipeline $CI_PIPELINE_ID)"
@@ -277,9 +341,13 @@ dogfood:failed:
 # RELEASE STAGE  ::  npm publish with Trusted Publishing (OIDC, no stored token)
 # =============================================================================
 # Publishes @slackwire/core, @slackwire/mcp, and slackwire to the public npm
-# registry on every version tag (vX.Y.Z). NO NPM_TOKEN is stored anywhere:
+# registry on every semver tag (vX.Y.Z). NO NPM_TOKEN is stored anywhere:
 # authentication is short-lived OIDC via npm Trusted Publishing, and provenance
-# attestations are emitted automatically.
+# is emitted via the explicit `--provenance` flag (signed with SIGSTORE_ID_TOKEN).
+#
+# Because the internal deps use the `workspace:*` protocol, we `pnpm pack` each
+# package (which rewrites `workspace:*` to the concrete version) and then publish
+# the resulting tarballs with the npm CLI (OIDC + provenance are npm-CLI-only).
 #
 # PREREQUISITES (all configured ONCE, externally, before the first tag):
 #   1. On npmjs.com, add a "trusted publisher" for EACH package
@@ -289,16 +357,24 @@ dogfood:failed:
 #   2. Toolchain: npm CLI >= 11.5.1 and Node >= 22.14 are required for trusted
 #      publishing. We start from node:22 and force-upgrade npm below.
 #   3. The GitLab repo must be PUBLIC for npm provenance to be accepted.
-#   4. The `id_tokens:` block below mints the OIDC token npm expects. The audience
-#      MUST be `npm:registry.npmjs.org` per npm's trusted-publishing spec.
+#   4. The `id_tokens:` block below mints the two OIDC tokens npm expects:
+#      NPM_ID_TOKEN (aud `npm:registry.npmjs.org`) for auth, and
+#      SIGSTORE_ID_TOKEN (aud `sigstore`) for provenance signing.
 release:npm:
   stage: release
   image: node:22
-  # OIDC: GitLab injects $NPM_ID_TOKEN as a signed JWT with the given audience.
-  # npm reads this env var automatically during `publish` under trusted publishing.
+  # OIDC: GitLab injects these signed JWTs as env vars for the job.
+  #   NPM_ID_TOKEN      -> npm Trusted Publishing AUTH. The npm CLI (>=11.5.1)
+  #                        reads this on GitLab CI to mint a short-lived publish
+  #                        token. Audience MUST be "npm:registry.npmjs.org".
+  #   SIGSTORE_ID_TOKEN -> npm PROVENANCE. On GitLab, libnpmpublish requires an
+  #                        id_token with the "sigstore" audience to sign the
+  #                        provenance attestation. Without it, `--provenance` fails.
   id_tokens:
     NPM_ID_TOKEN:
       aud: "npm:registry.npmjs.org"
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
   cache:
     key:
       files:
@@ -306,6 +382,18 @@ release:npm:
     paths:
       - .pnpm-store
   before_script:
+    # Fail fast if the three publishable package versions do not all equal the
+    # tag (vX.Y.Z -> X.Y.Z). Prevents shipping a tag whose package.json drifted.
+    - |
+      VERSION="${CI_COMMIT_TAG#v}"
+      for pkg in packages/core packages/cli packages/mcp; do
+        PKG_VERSION="$(node -p "require('./$pkg/package.json').version")"
+        if [ "$PKG_VERSION" != "$VERSION" ]; then
+          echo "FAIL: $pkg version $PKG_VERSION does not match tag version $VERSION"
+          exit 1
+        fi
+      done
+      echo "OK: all publishable package versions match tag $VERSION"
     # Trusted publishing needs a very recent npm; force the latest to be safe.
     - npm install -g npm@latest
     - node --version
@@ -315,14 +403,31 @@ release:npm:
     - pnpm install --frozen-lockfile
     - pnpm -r build
   script:
-    # `pnpm -r publish` walks the workspace and publishes every public package.
-    # --no-git-checks: the tag commit may not be on a branch in CI.
-    # --access public: required for first publish of scoped packages.
-    # Provenance is emitted automatically under trusted publishing (no flags).
-    - pnpm -r publish --access public --no-git-checks
+    # WHY npm CLI (not `pnpm publish`): both `slackwire` (cli) and @slackwire/mcp
+    # depend on @slackwire/core via the `workspace:*` protocol. npm does NOT
+    # rewrite `workspace:*` on publish, but `pnpm pack` DOES (it bakes the
+    # concrete version into the tarball's package.json). And npm Trusted
+    # Publishing (OIDC) + provenance are npm-CLI-only (pnpm will not use the
+    # OIDC token). So we get both: pnpm packs (rewriting workspace deps), then
+    # the npm CLI publishes each tarball with OIDC auth + provenance.
+    #
+    # This path can only be fully exercised on a real semver tag (it cannot run
+    # in a branch pipeline), so it is verified by reasoning + `glab ci lint`,
+    # not by publishing.
+    - VERSION="${CI_COMMIT_TAG#v}"
+    - mkdir -p "$CI_PROJECT_DIR/dist-packs"
+    - pnpm -C packages/core pack --pack-destination "$CI_PROJECT_DIR/dist-packs"
+    - pnpm -C packages/cli pack --pack-destination "$CI_PROJECT_DIR/dist-packs"
+    - pnpm -C packages/mcp pack --pack-destination "$CI_PROJECT_DIR/dist-packs"
+    # Publish core first (cli + mcp depend on it). --access public is required
+    # for the first publish of the scoped packages; harmless for the unscoped
+    # `slackwire`. --provenance emits the signed attestation.
+    - npm publish "$CI_PROJECT_DIR/dist-packs/slackwire-core-${VERSION}.tgz" --access public --provenance
+    - npm publish "$CI_PROJECT_DIR/dist-packs/slackwire-${VERSION}.tgz" --access public --provenance
+    - npm publish "$CI_PROJECT_DIR/dist-packs/slackwire-mcp-${VERSION}.tgz" --access public --provenance
   rules:
-    # Only ever runs on a pushed version tag.
-    - if: '$CI_COMMIT_TAG'
+    # Only ever runs on a pushed semver version tag (vX.Y.Z).
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
 
 # =============================================================================
 # PAGES STAGE  ::  GitLab Pages docs site
