@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "description": "Slack Card Engine monorepo",
   "license": "MIT",
+  "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20",
     "pnpm": ">=8"
