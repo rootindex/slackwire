@@ -106,28 +106,37 @@ test:
 # COMMIT EMAIL GUARD  ::  privacy safety net for leaked personal authorship
 # =============================================================================
 # WHY: a commit carries TWO email fields, author AND committer. Server-side
-# merges performed by GitLab have twice stamped the maintainer's personal gmail
-# into the COMMITTER field even when the author was correct, leaking a private
-# address into public history. This job is the detection layer for that leak.
+# merges performed by GitLab have twice stamped the maintainer's personal
+# address into the COMMITTER field even when the author was correct, leaking a
+# private address into public history. This job is the detection layer for that
+# leak.
 #
 # WHAT: it scans both the author (%ae) and committer (%ce) email of every commit
 # reachable from the current pipeline commit and FAILS the pipeline if the one
-# forbidden personal address appears. We block ONLY that exact address, never
-# all of gmail.com, so future contributors using a personal gmail are not
-# blocked by false positives.
+# forbidden personal address appears. The address is NEVER hardcoded in this
+# public file; it is supplied at runtime by the MASKED project CI/CD variable
+# $FORBIDDEN_EMAIL (Settings -> CI/CD -> Variables). We block ONLY that exact
+# address, never a whole provider domain, so future contributors using a
+# personal address are not blocked by false positives.
 #
 # SHALLOW CLONE: GitLab clones to a shallow depth (ci_default_git_depth). We try
 # a best-effort unshallow so more history is checked, but never fail the job if
 # unshallow is impossible; the reachable history is enough to catch new leaks.
+#
+# FORK SAFETY: forked-project MR pipelines do NOT receive project CI/CD
+# variables, so $FORBIDDEN_EMAIL is empty there. In that case there is nothing
+# to enforce: the job prints a notice and passes (exit 0) rather than failing on
+# a missing secret.
 #
 # Runs fast and early in the `test` stage on every branch, MR, and tag so it
 # gates the whole pipeline quickly.
 guard:commit-email:
   stage: test
   image: node:22
+  # NOTE: FORBIDDEN_EMAIL is intentionally NOT declared here. It is inherited
+  # from the MASKED project CI/CD variable so the address stays out of this
+  # public file. Only the clone-depth knob is set locally.
   variables:
-    # The single personal address that must never appear in authorship.
-    FORBIDDEN_EMAIL: "REDACTED"
     # Shallow clone is fine; we unshallow best-effort below.
     GIT_DEPTH: "0"
   script:
@@ -136,6 +145,12 @@ guard:commit-email:
     # let an inability to unshallow (already complete, no remote) fail the job.
     - git fetch --unshallow 2>/dev/null || true
     - |
+      # If no forbidden address is configured (e.g. a fork MR pipeline receives
+      # no project variables), there is nothing to enforce: skip and pass.
+      if [ -z "$FORBIDDEN_EMAIL" ]; then
+        echo "no FORBIDDEN_EMAIL configured; skipping"
+        exit 0
+      fi
       # Build "<hash> <author-email> <committer-email>" per reachable commit and
       # look for the forbidden address in either email field.
       MATCHES=$(git log --pretty=format:'%H %ae %ce' | grep -F "$FORBIDDEN_EMAIL" || true)

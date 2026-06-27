@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Slack client, template engine, and render pipeline",
   "license": "MIT",
+  "author": { "name": "Francois Raubenheimer", "url": "https://gitlab.com/slackwire/slackwire" },
   "keywords": ["slack", "slack-blocks", "template", "mcp", "library"],
   "repository": {
     "type": "git",

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Command-line tool for sending, updating, and managing Slack messages",
   "license": "MIT",
+  "author": { "name": "Francois Raubenheimer", "url": "https://gitlab.com/slackwire/slackwire" },
   "keywords": ["slack", "cli", "slack-cli", "slack-message", "ci", "gitlab", "devops"],
   "repository": {
     "type": "git",
