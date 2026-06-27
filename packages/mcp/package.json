@@ -16,11 +16,11 @@
   "files": ["dist"],
   "repository": {
     "type": "git",
-    "url": "https://gitlab.com/REPLACE-ME/slackwire"
+    "url": "https://gitlab.com/slackwire/slackwire"
   },
-  "homepage": "https://gitlab.com/REPLACE-ME/slackwire",
+  "homepage": "https://gitlab.com/slackwire/slackwire",
   "bugs": {
-    "url": "https://gitlab.com/REPLACE-ME/slackwire/-/issues"
+    "url": "https://gitlab.com/slackwire/slackwire/-/issues"
   },
   "exports": {
     ".": {

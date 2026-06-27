@@ -6,11 +6,11 @@
   "keywords": ["slack", "cli", "slack-cli", "slack-message", "ci", "gitlab", "devops"],
   "repository": {
     "type": "git",
-    "url": "https://gitlab.com/REPLACE-ME/slackwire.git"
+    "url": "https://gitlab.com/slackwire/slackwire.git"
   },
-  "homepage": "https://gitlab.com/REPLACE-ME/slackwire",
+  "homepage": "https://gitlab.com/slackwire/slackwire",
   "bugs": {
-    "url": "https://gitlab.com/REPLACE-ME/slackwire/-/issues"
+    "url": "https://gitlab.com/slackwire/slackwire/-/issues"
   },
   "type": "module",
   "main": "./dist/index.js",

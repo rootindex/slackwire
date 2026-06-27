@@ -149,15 +149,15 @@ automatically.
 
 ## 6. Replace the placeholder repository URLs
 
-The package manifests currently use placeholder URLs:
+The package manifests use the GitLab project URL:
 
 ```
-https://gitlab.com/REPLACE-ME/slackwire
+https://gitlab.com/slackwire/slackwire
 ```
 
-Once the GitLab project exists, replace every `REPLACE-ME` occurrence in
+This namespace/project path (`slackwire/slackwire`) is set in
 `packages/cli/package.json`, `packages/core/package.json`, and
-`packages/mcp/package.json` with the real GitLab namespace/project path. These
+`packages/mcp/package.json`. These
 URLs feed the npm package `repository`, `homepage`, and `bugs` fields, and
 provenance ties attestations to the source repo, so they must be accurate
 before the first publish.

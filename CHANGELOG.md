@@ -20,5 +20,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Distroless Docker image built from the bundled CLI.
 - Optional Model Context Protocol server (`@slackwire/mcp`) exposing the same core engine as tool calls.
 
-[Unreleased]: https://gitlab.com/REPLACE-ME/slackwire/-/compare/v0.1.0...HEAD
-[0.1.0]: https://gitlab.com/REPLACE-ME/slackwire/-/releases/v0.1.0
+[Unreleased]: https://gitlab.com/slackwire/slackwire/-/compare/v0.1.0...HEAD
+[0.1.0]: https://gitlab.com/slackwire/slackwire/-/releases/v0.1.0
