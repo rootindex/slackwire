@@ -3,9 +3,15 @@ import type { PlaceholderKind, PlaceholderValue, DatePlaceholder } from './types
 
 const MS_EPOCH_THRESHOLD = 1e12;
 const ALLOWED_URL_SCHEMES = ['https:', 'http:'];
+const SLACK_ID_PATTERN = /^[UWCGD][A-Z0-9]+$/;
+const BACKTICK_LOOKALIKE = 'ˋ';
 
 function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function neutralizeBackticks(value: string): string {
+  return value.replace(/`/g, BACKTICK_LOOKALIKE);
 }
 
 function escapeLinkText(value: string): string {
@@ -39,7 +45,7 @@ export function escape(kind: PlaceholderKind, value: PlaceholderValue): string {
     case 'code':
     case 'code_block':
       if (typeof value !== 'string') throw new SchemaError(`${kind} requires a string value`);
-      return value;
+      return neutralizeBackticks(value);
 
     case 'link_text':
       if (typeof value !== 'string') throw new SchemaError('link_text requires a string value');
@@ -52,10 +58,16 @@ export function escape(kind: PlaceholderKind, value: PlaceholderValue): string {
 
     case 'user_mention':
       if (typeof value !== 'string') throw new SchemaError('user_mention requires a string value');
+      if (!SLACK_ID_PATTERN.test(value)) {
+        throw new SchemaError(`Invalid user id "${value}"; expected a Slack id like U0123ABCD`);
+      }
       return `<@${value}>`;
 
     case 'channel_mention':
       if (typeof value !== 'string') throw new SchemaError('channel_mention requires a string value');
+      if (!SLACK_ID_PATTERN.test(value)) {
+        throw new SchemaError(`Invalid channel id "${value}"; expected a Slack id like C0123ABCD`);
+      }
       return `<#${value}>`;
 
     case 'date': {

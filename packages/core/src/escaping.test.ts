@@ -56,4 +56,22 @@ describe('per-kind escaping', () => {
   it('rejects an unknown placeholder kind', () => {
     expect(() => escape('unknown_kind' as never, 'value')).toThrow(SchemaError);
   });
+
+  it('rejects a mention value carrying an injection payload', () => {
+    expect(() => escape('user_mention', 'here>!channel<')).toThrow(SchemaError);
+    expect(() => escape('user_mention', '!channel')).toThrow(SchemaError);
+    expect(() => escape('channel_mention', 'C123><!everyone')).toThrow(SchemaError);
+  });
+
+  it('accepts a well-formed Slack id mention', () => {
+    expect(escape('user_mention', 'U123')).toBe('<@U123>');
+    expect(escape('channel_mention', 'C123')).toBe('<#C123>');
+  });
+
+  it('neutralizes backticks in code and code_block values', () => {
+    const codeOut = escape('code', 'rm -rf `whoami`');
+    expect(codeOut).not.toContain('`');
+    const blockOut = escape('code_block', '```injected```');
+    expect(blockOut).not.toContain('`');
+  });
 });
