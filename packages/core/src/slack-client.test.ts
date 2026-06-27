@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SlackClient } from './slack-client.js';
-import { SlackApiError, RateLimitError } from './errors.js';
+import { SlackApiError, RateLimitError, NetworkError } from './errors.js';
 import { ErrorCode } from '@slack/web-api';
 
 const TOKEN = 'xoxb-secret-token-abc123';
@@ -189,5 +189,75 @@ describe('SlackClient', () => {
     expect(messages[0]).toMatchObject({ ts: '333.000', channel: 'C999' });
     expect(messages[0]!.text).toContain('pipeline-42/job-7');
     expect(messages[0]!.metadata).toBeUndefined();
+  });
+
+  it('deletes a message by channel and ts', async () => {
+    mock.chat.delete.mockResolvedValue({ ok: true });
+
+    await client.delete('C123', '1234567890.000100');
+
+    expect(mock.chat.delete).toHaveBeenCalledWith({
+      channel: 'C123',
+      ts: '1234567890.000100',
+    });
+  });
+
+  it('adds a reaction with the timestamp mapped to the Slack arg', async () => {
+    mock.reactions.add.mockResolvedValue({ ok: true });
+
+    await client.react('C123', '1234567890.000100', 'tada');
+
+    expect(mock.reactions.add).toHaveBeenCalledWith({
+      channel: 'C123',
+      timestamp: '1234567890.000100',
+      name: 'tada',
+    });
+  });
+
+  it('schedules a message, mapping postAt to post_at and returning the scheduled id', async () => {
+    mock.chat.scheduleMessage.mockResolvedValue({
+      ok: true,
+      scheduled_message_id: 'Q123ABC',
+    });
+
+    const result = await client.schedule({
+      channel: 'C123',
+      postAt: 1700000000,
+      text: 'later',
+      blocks: [{ type: 'section', text: { type: 'mrkdwn', text: 'later' } }],
+    });
+
+    expect(result).toEqual({ scheduledMessageId: 'Q123ABC' });
+    expect(mock.chat.scheduleMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: 'C123',
+        post_at: 1700000000,
+        text: 'later',
+        blocks: [{ type: 'section', text: { type: 'mrkdwn', text: 'later' } }],
+      }),
+    );
+  });
+
+  it('maps an HTTPError code to a NetworkError', async () => {
+    const sdkError = Object.assign(new Error('socket hang up'), {
+      code: ErrorCode.HTTPError,
+    });
+    mock.chat.postMessage.mockRejectedValue(sdkError);
+
+    await expect(
+      client.post({ channel: 'C123', text: 'hi' }),
+    ).rejects.toBeInstanceOf(NetworkError);
+  });
+
+  it('maps a non-Error throw to a generic SlackApiError', async () => {
+    mock.chat.postMessage.mockRejectedValue('catastrophe');
+
+    const err = await client
+      .post({ channel: 'C123', text: 'hi' })
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(SlackApiError);
+    expect((err as SlackApiError).code).toBe('unknown');
+    expect((err as SlackApiError).message).toBe('unknown error');
   });
 });

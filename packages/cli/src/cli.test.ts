@@ -1074,4 +1074,204 @@ describe('CLI', () => {
     expect(code).toBe(2);
     expect(io.err.length).toBeGreaterThan(0);
   });
+
+  it('maps a SlackApiError to exit 3 under --fail-mode block', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient, SlackApiError } = await import('@slackwire/core');
+
+    const mockPost = vi.fn().mockRejectedValue(
+      new (SlackApiError as new (msg: string, code: string) => Error)('channel_not_found', 'channel_not_found'),
+    );
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--text', 'hi',
+      '--fail-mode', 'block',
+    ], io);
+
+    expect(code).toBe(3);
+    expect(io.err.some(e => e.includes('Error'))).toBe(true);
+  });
+
+  it('maps a NetworkError to exit 4 under --fail-mode block', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient, NetworkError } = await import('@slackwire/core');
+
+    const mockPost = vi.fn().mockRejectedValue(
+      new (NetworkError as new (msg: string) => Error)('socket hang up'),
+    );
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--text', 'hi',
+      '--fail-mode', 'block',
+    ], io);
+
+    expect(code).toBe(4);
+  });
+
+  it('maps a RateLimitError to exit 5 under --fail-mode block', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient, RateLimitError } = await import('@slackwire/core');
+
+    const mockPost = vi.fn().mockRejectedValue(
+      new (RateLimitError as new (msg: string, retryAfter: number) => Error)('rate_limited', 30),
+    );
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--text', 'hi',
+      '--fail-mode', 'block',
+    ], io);
+
+    expect(code).toBe(5);
+  });
+
+  it('decodes a SLACK_TOKEN_BASE64 token and constructs the client with it', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slackwire/core');
+
+    const mockPost = vi.fn().mockResolvedValue({ channel: 'C123', ts: '1234567890.123456' });
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: mockPost,
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+    }));
+
+    const out: string[] = [];
+    const err: string[] = [];
+    const io: RunIO & { out: string[]; err: string[] } = {
+      out, err,
+      stdout: (line: string) => { out.push(line); },
+      stderr: (line: string) => { err.push(line); },
+      env: { SLACK_TOKEN_BASE64: Buffer.from('xoxb-decoded-token').toString('base64') },
+    };
+
+    const code = await run(['post', '--channel', 'C123', '--text', 'hi'], io);
+
+    expect(code).toBe(0);
+    expect(SlackClient).toHaveBeenCalledWith('xoxb-decoded-token');
+  });
+
+  it('exits 2 with no token configured on a non-dry-run command', async () => {
+    const { run } = await import('./run.js');
+
+    const out: string[] = [];
+    const err: string[] = [];
+    const io: RunIO & { out: string[]; err: string[] } = {
+      out, err,
+      stdout: (line: string) => { out.push(line); },
+      stderr: (line: string) => { err.push(line); },
+      env: {},
+    };
+
+    const code = await run(['post', '--channel', 'C123', '--text', 'hi'], io);
+
+    expect(code).toBe(2);
+    expect(io.err.some(e => e.includes('No Slack token configured'))).toBe(true);
+  });
+
+  it('exits 2 when post --blocks is not valid JSON', async () => {
+    const { run } = await import('./run.js');
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--blocks', '{not valid json',
+    ], io);
+
+    expect(code).toBe(2);
+    expect(io.err.some(e => e.includes('must be valid JSON'))).toBe(true);
+  });
+
+  it('exits 2 when post --blocks has the wrong JSON shape', async () => {
+    const { run } = await import('./run.js');
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--blocks', '{"notblocks":1}',
+    ], io);
+
+    expect(code).toBe(2);
+    expect(io.err.some(e => e.includes('must be a JSON array or object'))).toBe(true);
+  });
+
+  it('exits 2 when post --blocks fails structural/limit validation', async () => {
+    const { run } = await import('./run.js');
+    const { validateLimits, LimitError } = await import('@slackwire/core');
+
+    (validateLimits as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new (LimitError as new (msg: string) => Error)('too many blocks');
+    });
+
+    const io = makeIO();
+    const code = await run([
+      'post',
+      '--channel', 'C123',
+      '--blocks', JSON.stringify([{ type: 'section', text: { type: 'mrkdwn', text: 'x' } }]),
+    ], io);
+
+    expect(code).toBe(2);
+    expect(io.err.some(e => e.includes('Validation error'))).toBe(true);
+  });
+
+  it('prints the usage banner and exits 2 when no verb is given', async () => {
+    const { run } = await import('./run.js');
+
+    const io = makeIO();
+    const code = await run([], io);
+
+    expect(code).toBe(2);
+    expect(io.err.some(e => e.includes('Usage:'))).toBe(true);
+  });
+
+  it('exits 2 on an unknown verb', async () => {
+    const { run } = await import('./run.js');
+
+    const io = makeIO();
+    const code = await run(['frobnicate', '--channel', 'C123'], io);
+
+    expect(code).toBe(2);
+    expect(io.err.some(e => e.includes('Unknown verb'))).toBe(true);
+  });
 });
