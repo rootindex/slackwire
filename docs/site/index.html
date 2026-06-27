@@ -523,11 +523,14 @@ slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXX
         <tr><td><code>react</code></td><td><code>--channel &lt;c&gt; --ts &lt;ts&gt; --emoji &lt;name&gt;</code></td><td><code>reacted\t&lt;emoji&gt;</code></td></tr>
         <tr><td><code>upload</code></td><td><code>--channel &lt;c&gt; --file &lt;path&gt; [--title] [--comment]</code></td><td><code>uploaded\t&lt;path&gt;</code></td></tr>
         <tr><td><code>card</code></td><td><code>--template &lt;n@v&gt; --channel &lt;c&gt; [--data]</code> &mdash; alias for <code>post --template</code></td><td><code>&lt;ts&gt;\t&lt;permalink&gt;</code></td></tr>
+        <tr><td><code>search</code></td><td><code>--query &lt;q&gt; [--limit &lt;n&gt;]</code></td><td><code>&lt;ts&gt;\t&lt;channel&gt;\t&lt;text&gt;</code> per match</td></tr>
+        <tr><td><code>read</code></td><td><code>--channel &lt;c&gt; [--limit &lt;n&gt;]</code></td><td><code>&lt;ts&gt;\t&lt;text&gt;</code> per message</td></tr>
+        <tr><td><code>schedule</code></td><td><code>--channel &lt;c&gt; --at &lt;epoch|ISO&gt;</code> with one of <code>--template</code> / <code>--blocks</code> / <code>--text</code></td><td><code>scheduled\t&lt;id&gt;</code></td></tr>
       </tbody>
     </table>
     </div>
 
-    <p>For <code>post</code> and <code>update</code>, the message body comes from <strong>exactly one</strong> of three sources: <code>--template</code>, <code>--blocks</code>, or <code>--text</code>. (For <code>update</code>, the body is optional: <code>update --channel --ts</code> with no body still issues a <code>chat.update</code> call.)</p>
+    <p>For <code>post</code>, <code>update</code>, and <code>schedule</code>, the message body comes from <strong>exactly one</strong> of three sources: <code>--template</code>, <code>--blocks</code>, or <code>--text</code>. (For <code>update</code>, the body is optional: <code>update --channel --ts</code> with no body still issues a <code>chat.update</code> call.) <code>search</code> queries <code>search.messages</code>; <code>read</code> pulls <code>conversations.history</code>; <code>schedule</code> posts later via <code>chat.scheduleMessage</code>, taking <code>--at</code> as a Unix epoch in seconds or an ISO 8601 date.</p>
 
     <h4>Flag reference</h4>
     <div class="table-wrap">
@@ -541,11 +544,14 @@ slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXX
         <tr><td><code>--blocks &lt;json&gt;</code> / <code>--blocks -</code></td><td>Raw Block Kit. <code>-</code> reads stdin.</td></tr>
         <tr><td><code>--text &lt;t&gt;</code></td><td>Plain message text, or fallback text alongside <code>--blocks</code>.</td></tr>
         <tr><td><code>--emoji &lt;name&gt;</code></td><td>Reaction emoji name, without colons.</td></tr>
+        <tr><td><code>--query &lt;q&gt;</code></td><td>Search query for <code>search</code>.</td></tr>
+        <tr><td><code>--limit &lt;n&gt;</code></td><td>Result cap for <code>search</code> (count) and <code>read</code> (history limit).</td></tr>
+        <tr><td><code>--at &lt;epoch|ISO&gt;</code></td><td>Post time for <code>schedule</code>: a Unix epoch in seconds or an ISO 8601 date.</td></tr>
         <tr><td><code>--file &lt;path&gt;</code></td><td>File to upload.</td></tr>
         <tr><td><code>--title &lt;t&gt;</code> / <code>--comment &lt;c&gt;</code></td><td>File title and initial comment for <code>upload</code>.</td></tr>
         <tr><td><code>--catalog &lt;path&gt;</code></td><td>Template catalog directory. Overrides <code>SLACK_CATALOG</code> (default <code>./templates</code>).</td></tr>
         <tr><td><code>--theme &lt;#rrggbb&gt;</code></td><td>Accent color. Needs <code>SLACK_ATTRIBUTION=true</code> to render the colored bar.</td></tr>
-        <tr><td><code>--dry-run</code></td><td>Render and print the assembled JSON to stdout. No token, no API call. Works on <code>post</code>, <code>update</code>, <code>card</code>.</td></tr>
+        <tr><td><code>--dry-run</code></td><td>Render and print the assembled JSON to stdout. No token, no API call. Works on <code>post</code>, <code>update</code>, <code>card</code>, <code>schedule</code>.</td></tr>
         <tr><td><code>--fail-mode &lt;non-blocking|block&gt;</code></td><td>Failure behavior. Defaults to <code>non-blocking</code>.</td></tr>
       </tbody>
     </table>
@@ -572,17 +578,16 @@ slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXX
     </div>
 
     <h3>post &middot; from a template</h3>
-    <p>Templates render typed placeholders into Block Kit. Provide the template as <code>name@version</code> (version defaults to <code>1.0.0</code>) and feed it data with <code>--data</code>.</p>
+    <p>Templates render typed placeholders into Block Kit. Provide the template as <code>name@version</code> (version defaults to <code>1.0.0</code>) and feed it data with <code>--data</code>. Every field declared in the template's <code>schema.json</code> is required and unknown fields are rejected, so the <code>--data</code> object must supply each one. The bundled <code>ci-cd@1.0.0</code> declares 16 fields:</p>
     <div class="code">
       <div class="code-head"><span class="code-lang">sh</span><button class="copy-btn">Copy</button></div>
-      <pre>slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXXXX \
-  <span class="f">--template</span> ci-cd@1.0.0 \
-  <span class="f">--data</span> <span class="s">'{"title":"CI passed","ref":"main","author":"Naledi"}'</span></pre>
+      <pre>slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXXXX <span class="f">--template</span> ci-cd@1.0.0 \
+  <span class="f">--data</span> <span class="s">'{"title":"CI passed: healthcart-v2 #2451","ref":"feature/checkout-fix","short_sha":"a1b9f2c","description":"Fix Stitch amount overflow","author":"Naledi","icon_url":"https://placehold.co/72x72/2eb67d/ffffff/png?text=PASS","icon_alt":"passed","steps_text":"Install -&gt; Lint -&gt; Test -&gt; Build -&gt; Deploy","progress_bar":"5 of 5 - deployed to staging","runner":"ci-3","test_count":"142","coverage":"84.2%","finished_at":{"epoch":1750000000,"format":"{time}","fallback":"now"},"primary_label":"Open staging","primary_url":"https://staging.example.com/healthcart-v2","logs_url":"https://ci.example.com/healthcart-v2/2451/logs"}'</span></pre>
     </div>
-    <p><code>card</code> is an alias for <code>post --template</code>:</p>
+    <p><code>card</code> is an alias for <code>post --template</code> and takes the same complete <code>--data</code> object:</p>
     <div class="code">
       <div class="code-head"><span class="code-lang">sh</span><button class="copy-btn">Copy</button></div>
-      <pre>slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.0.0 <span class="f">--channel</span> C0XXXXXXXXX <span class="f">--data</span> <span class="s">'{...}'</span></pre>
+      <pre>slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.0.0 <span class="f">--channel</span> C0XXXXXXXXX <span class="f">--data</span> <span class="s">'{ ...the 16 ci-cd fields shown above... }'</span></pre>
     </div>
     <p>Add <code>--theme '#2eb67d'</code> to set an accent color (see <a href="#limits">the caveat</a>). The catalog defaults to <code>./templates</code> and is overridden with <code>--catalog &lt;path&gt;</code> or <code>SLACK_CATALOG</code>.</p>
 
@@ -590,13 +595,15 @@ slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXX
     <p><code>update</code> rewrites a message in place by its timestamp. The canonical pattern is to post a <code>running</code> card, capture its <code>ts</code>, then morph it to <code>passed</code> or <code>failed</code> when the job finishes. This is what makes a single Slack message track a job from start to finish instead of spamming the channel.</p>
     <div class="code">
       <div class="code-head"><span class="code-lang">sh</span><button class="copy-btn">Copy</button></div>
-      <pre><span class="c"># post the running card, capture the timestamp (first tab-separated field)</span>
-TS=$(slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXXXX <span class="f">--template</span> ci-cd@1.0.0 \
-       <span class="f">--data</span> <span class="s">'{"status":"running"}'</span> | <span class="k">cut</span> -f1)
+      <pre><span class="c"># the same 16 ci-cd fields, once with running values and once with passed values</span>
+RUNNING=<span class="s">'{"title":"CI running: healthcart-v2 #2451","ref":"feature/checkout-fix","short_sha":"a1b9f2c","description":"Fix Stitch amount overflow","author":"Naledi","icon_url":"https://placehold.co/72x72/ecb22e/ffffff/png?text=RUN","icon_alt":"running","steps_text":"Install -&gt; Lint -&gt; Test -&gt; Build -&gt; Deploy","progress_bar":"3 of 5 - running","runner":"ci-3","test_count":"142","coverage":"84.2%","finished_at":{"epoch":1750000000,"format":"{time}","fallback":"now"},"primary_label":"Open pipeline","primary_url":"https://ci.example.com/healthcart-v2/2451","logs_url":"https://ci.example.com/healthcart-v2/2451/logs"}'</span>
+PASSED=<span class="s">'{"title":"CI passed: healthcart-v2 #2451","ref":"feature/checkout-fix","short_sha":"a1b9f2c","description":"Fix Stitch amount overflow","author":"Naledi","icon_url":"https://placehold.co/72x72/2eb67d/ffffff/png?text=PASS","icon_alt":"passed","steps_text":"Install -&gt; Lint -&gt; Test -&gt; Build -&gt; Deploy","progress_bar":"5 of 5 - deployed to staging","runner":"ci-3","test_count":"142","coverage":"84.2%","finished_at":{"epoch":1750000000,"format":"{time}","fallback":"now"},"primary_label":"Open staging","primary_url":"https://staging.example.com/healthcart-v2","logs_url":"https://ci.example.com/healthcart-v2/2451/logs"}'</span>
 
-<span class="c"># later, morph the same message to passed</span>
-slackwire <span class="k">update</span> <span class="f">--channel</span> C0XXXXXXXXX <span class="f">--ts</span> <span class="s">"$TS"</span> <span class="f">--template</span> ci-cd@1.0.0 \
-  <span class="f">--data</span> <span class="s">'{"status":"passed"}'</span></pre>
+<span class="c"># post the running card, capture the timestamp (first tab-separated field)</span>
+TS=$(slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXXXX <span class="f">--template</span> ci-cd@1.0.0 <span class="f">--data</span> <span class="s">"$RUNNING"</span> | <span class="k">cut</span> -f1)
+
+<span class="c"># later, morph the same message to the passed state</span>
+slackwire <span class="k">update</span> <span class="f">--channel</span> C0XXXXXXXXX <span class="f">--ts</span> <span class="s">"$TS"</span> <span class="f">--template</span> ci-cd@1.0.0 <span class="f">--data</span> <span class="s">"$PASSED"</span></pre>
     </div>
     <p>To morph the accent color along with the status, pass <code>--theme</code> and set <code>SLACK_ATTRIBUTION=true</code>: a green bar on <code>passed</code>, a red bar on <code>failed</code>. <code>update</code> also prints <code>&lt;ts&gt;\t&lt;permalink&gt;</code> on success.</p>
 
@@ -654,8 +661,8 @@ slackwire <span class="k">update</span> <span class="f">--channel</span> C0XXXXX
     <div class="code">
       <div class="code-head"><span class="code-lang">sh</span><button class="copy-btn">Copy</button></div>
       <pre><span class="k">export</span> SLACK_ATTRIBUTION=<span class="s">true</span>
-slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.0.0 <span class="f">--channel</span> C0XXXXXXXXX \
-  <span class="f">--theme</span> <span class="s">'#2eb67d'</span> <span class="f">--data</span> <span class="s">'{"status":"passed"}'</span></pre>
+slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.0.0 <span class="f">--channel</span> C0XXXXXXXXX <span class="f">--theme</span> <span class="s">'#2eb67d'</span> \
+  <span class="f">--data</span> <span class="s">'{"title":"CI passed: healthcart-v2 #2451","ref":"feature/checkout-fix","short_sha":"a1b9f2c","description":"Fix Stitch amount overflow","author":"Naledi","icon_url":"https://placehold.co/72x72/2eb67d/ffffff/png?text=PASS","icon_alt":"passed","steps_text":"Install -&gt; Lint -&gt; Test -&gt; Build -&gt; Deploy","progress_bar":"5 of 5 - deployed to staging","runner":"ci-3","test_count":"142","coverage":"84.2%","finished_at":{"epoch":1750000000,"format":"{time}","fallback":"now"},"primary_label":"Open staging","primary_url":"https://staging.example.com/healthcart-v2","logs_url":"https://ci.example.com/healthcart-v2/2451/logs"}'</span></pre>
     </div>
   </section>
 
@@ -700,9 +707,18 @@ slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.
       <pre><span class="o">{
   "title": "text_plain",
   "ref": "text_plain",
+  "short_sha": "text_plain",
+  "description": "text_mrkdwn",
   "author": "text_mrkdwn",
   "icon_url": "image_url",
+  "icon_alt": "text_plain",
+  "steps_text": "text_mrkdwn",
+  "progress_bar": "text_mrkdwn",
+  "runner": "text_plain",
+  "test_count": "text_plain",
+  "coverage": "text_plain",
   "finished_at": "date",
+  "primary_label": "text_plain",
   "primary_url": "link_url",
   "logs_url": "link_url"
 }</span></pre>
@@ -711,10 +727,10 @@ slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.
     <div class="code">
       <div class="code-head"><span class="code-lang">skeleton.json</span><button class="copy-btn">Copy</button></div>
       <pre><span class="o">{ "type": "header",
-  "text": { "type": "plain_text", "text": "{{text_plain:title}}" } },
+  "text": { "type": "plain_text", "text": "{{text_plain:title}}", "emoji": true } },
 { "type": "section",
   "text": { "type": "mrkdwn",
-    "text": "`{{text_plain:ref}}` by *{{text_mrkdwn:author}}*" } }</span></pre>
+    "text": "`{{text_plain:ref}}` · `{{text_plain:short_sha}}` · _{{text_mrkdwn:description}}_\nby *{{text_mrkdwn:author}}*" } }</span></pre>
     </div>
     <p>And <code>meta.json</code> names the card and its morph states:</p>
     <div class="code">
@@ -723,6 +739,7 @@ slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.
   "name": "ci-cd",
   "version": "1.0.0",
   "description": "CI/CD pipeline live card with morph states (running/passed/failed)",
+  "overflow": "fail",
   "states": ["running", "passed", "failed"]
 }</span></pre>
     </div>
@@ -754,9 +771,8 @@ slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.
   stage: .pre
   image: slackwire:dev
   script:
-    - slackwire <span class="k">card</span> <span class="f">--template</span> cicd-live@1.0.0 \
-        <span class="f">--channel</span> <span class="s">"$SLACK_CHANNEL"</span> \
-        <span class="f">--data</span> <span class="s">"{\"status\":\"running\",\"ref\":\"$CI_COMMIT_REF_NAME\"}"</span> | <span class="k">tee</span> slack.env
+    - slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.0.0 <span class="f">--channel</span> <span class="s">"$SLACK_CHANNEL"</span> \
+        <span class="f">--data</span> <span class="s">'{"title":"CI running: healthcart-v2 #2451","ref":"feature/checkout-fix","short_sha":"a1b9f2c","description":"Fix Stitch amount overflow","author":"Naledi","icon_url":"https://placehold.co/72x72/ecb22e/ffffff/png?text=RUN","icon_alt":"running","steps_text":"Install -&gt; Lint -&gt; Test -&gt; Build -&gt; Deploy","progress_bar":"3 of 5 - running","runner":"ci-3","test_count":"142","coverage":"84.2%","finished_at":{"epoch":1750000000,"format":"{time}","fallback":"now"},"primary_label":"Open pipeline","primary_url":"https://ci.example.com/healthcart-v2/2451","logs_url":"https://ci.example.com/healthcart-v2/2451/logs"}'</span> | <span class="k">tee</span> slack.env
     - <span class="k">echo</span> <span class="s">"SLACK_TS=$(awk '{print $1}' slack.env)"</span> &gt;&gt; notify.env
   artifacts:
     reports:
@@ -768,7 +784,7 @@ slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.
   needs: [{ job: notify:running, artifacts: true }]
   script:
     - slackwire <span class="k">update</span> <span class="f">--channel</span> <span class="s">"$SLACK_CHANNEL"</span> <span class="f">--ts</span> <span class="s">"$SLACK_TS"</span> \
-        <span class="f">--template</span> cicd-live@1.0.0 <span class="f">--data</span> <span class="s">'{"status":"passed"}'</span>
+        <span class="f">--template</span> ci-cd@1.0.0 <span class="f">--data</span> <span class="s">'{ ...the 16 ci-cd fields with passed values... }'</span>
   when: on_success
 
 <span class="k">notify:failure</span>:
@@ -777,7 +793,7 @@ slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.
   dependencies: [notify:running]   <span class="c"># not needs: (see below)</span>
   script:
     - slackwire <span class="k">update</span> <span class="f">--channel</span> <span class="s">"$SLACK_CHANNEL"</span> <span class="f">--ts</span> <span class="s">"$SLACK_TS"</span> \
-        <span class="f">--template</span> cicd-live@1.0.0 <span class="f">--data</span> <span class="s">'{"status":"failed"}'</span>
+        <span class="f">--template</span> ci-cd@1.0.0 <span class="f">--data</span> <span class="s">'{ ...the 16 ci-cd fields with failed values... }'</span>
   when: on_failure</pre>
     </div>
 
@@ -786,14 +802,13 @@ slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.
       <p>On the failure path, use <code>dependencies:</code>, <strong>not</strong> <code>needs:</code>. When a job fails, any downstream job that declares <code>needs: [failed-job]</code> enters the amber "blocked" state and never runs. <code>dependencies:</code> only controls artifact download, not execution ordering, so the failure notification still fires on <code>when: on_failure</code>.</p>
     </div>
 
-    <h3>Idempotency &middot; the dotenv is just a cache</h3>
-    <p>The dotenv <code>ts</code> is a convenience, not the source of truth. If the artifact is lost (a retry, or a separate release pipeline morphing the same card), the CLI re-finds the existing message via a <strong>dedupe key stored in Slack message metadata</strong>. Set a consistent key across every job that touches the card:</p>
-    <div class="code">
-      <div class="code-head"><span class="code-lang">.gitlab-ci.yml</span><button class="copy-btn">Copy</button></div>
-      <pre><span class="k">variables</span>:
-  SLACK_DEDUPE_KEY: <span class="s">"pipeline-$CI_PIPELINE_ID"</span></pre>
+    <h3>The dotenv <code>ts</code> is the job-to-job handoff</h3>
+    <p>The dotenv <code>ts</code> is how <code>notify:running</code> hands the message timestamp to the morph jobs; keep the artifact flowing so the same card is updated rather than duplicated. The <code>slackwire</code> CLI verbs act only on the <code>channel</code> + <code>ts</code> you pass them: they do <strong>not</strong> stamp dedupe metadata or re-find a prior card.</p>
+    <div class="callout warn">
+      <span class="ct">Gotcha &middot; no extra --data keys</span>
+      <p>Do not add a <code>dedupeKey</code> (or any other field) to the <code>--data</code> JSON for the bundled templates. Each template schema marks every key required and sets <code>additionalProperties: false</code>, so an unknown field fails validation and exits 2.</p>
     </div>
-    <p>Pass it as <code>dedupeKey</code> in your <code>--data</code> JSON. A bot token re-finds via <code>conversations.history</code> scanning the metadata payload; a user token re-finds via <code>search.messages</code> on the dedupe key.</p>
+    <p>Metadata-based idempotent re-find, re-locating a card from Slack when the <code>ts</code> is unavailable, exists in <code>@slackwire/core</code> as <code>findOrCreate</code> (bot tokens via <code>conversations.history</code>, user tokens via <code>search.messages</code>). It is a library capability, not yet wired into the CLI verbs.</p>
 
     <h3>Egress-restricted runners</h3>
     <p>For runners without direct internet access, pass standard proxy settings. Include the AWS metadata range in <code>NO_PROXY</code> if your runners run on EC2; include <code>slack.com</code> only if your proxy terminates HTTPS for the Slack API.</p>
@@ -924,7 +939,7 @@ docs/        gitlab-integration.md, parity-evals.md, this site</span></pre>
   <!-- ===== MCP ===== -->
   <section class="anchor" id="mcp">
     <h2>MCP server</h2>
-    <p>slackwire has <strong>two faces over one core</strong>. The CLI is the terminal/CI front end; the <a href="https://modelcontextprotocol.io">Model Context Protocol</a> server, <code>@slackwire/mcp</code>, is the front end for MCP-capable assistants. Both call the same <code>@slackwire/core</code> engine, so escaping, limit guards, and fallback derivation apply identically no matter which face you use.</p>
+    <p>slackwire has <strong>two faces over one core</strong>. The CLI is the terminal/CI front end; the <a href="https://modelcontextprotocol.io">Model Context Protocol</a> server, <code>@slackwire/mcp</code>, is the front end for MCP-capable assistants. Both call the same <code>@slackwire/core</code> Slack client and, for cards, the same structural and Slack-limit validators. They differ in one way: the CLI renders templates and escapes values, while the MCP server does neither &mdash; its <code>post_card</code> / <code>update_card</code> tools expect pre-rendered, pre-escaped Block Kit.</p>
     <p>The package now ships a <strong>runnable stdio server</strong>, not just a library. Installing it provides a <code>slackwire-mcp</code> bin (entry <code>dist/main.js</code>) that starts a stdio MCP server and resolves the Slack token from the environment, first match wins: <code>SLACK_TOKEN</code>, then <code>SLACK_TOKEN_BASE64</code> (base64-decoded), then <code>SLACK_TOKEN_FILE</code> (a path to a token file). Diagnostic logs go to stderr, prefixed <code>[slackwire-mcp]</code>.</p>
 
     <h3>Run it</h3>
@@ -957,9 +972,9 @@ slackwire-mcp           <span class="c"># once @slackwire/mcp is installed</span
     <table>
       <thead><tr><th>Tool</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td><code>post_card</code></td><td>Render a template card and post it to a channel.</td></tr>
-        <tr><td><code>update_card</code></td><td>Render a template card and morph an existing message in place.</td></tr>
-        <tr><td><code>post</code></td><td>Send a plain-text message or raw blocks.</td></tr>
+        <tr><td><code>post_card</code></td><td>Post pre-rendered Block Kit <code>blocks</code> (a JSON-encoded array) to a channel. Validates structure and Slack limits; does not render templates.</td></tr>
+        <tr><td><code>update_card</code></td><td>Morph an existing message in place by <code>ts</code> using pre-rendered <code>blocks</code> (JSON-encoded array). Same validation; no template rendering.</td></tr>
+        <tr><td><code>post</code></td><td>Send a plain-text message (text only, no blocks).</td></tr>
         <tr><td><code>react</code></td><td>Add a reaction emoji to a message.</td></tr>
         <tr><td><code>upload</code></td><td>Upload a file to a channel.</td></tr>
         <tr><td><code>resolve</code></td><td>Resolve a channel or user name to its Slack ID.</td></tr>
@@ -968,7 +983,7 @@ slackwire-mcp           <span class="c"># once @slackwire/mcp is installed</span
     </div>
     <div class="callout note">
       <span class="ct">Note &middot; same core</span>
-      <p>The tools run the same <code>@slackwire/core</code> engine as the CLI, so per-kind escaping, structural and Slack limit guards, and the non-blocking fallback behave identically through the tools. See <a href="../../packages/mcp/README.md"><code>packages/mcp/README.md</code></a>.</p>
+      <p><code>post_card</code> and <code>update_card</code> run the same <code>@slackwire/core</code> structural and Slack-limit validators the CLI runs, so a malformed or oversized <code>blocks</code> array is rejected before it reaches Slack. Unlike the CLI, the MCP server does not render templates, escape values, or derive fallback text &mdash; render and escape with <code>@slackwire/core</code> first, then hand the blocks to the tools. See <a href="../../packages/mcp/README.md"><code>packages/mcp/README.md</code></a>.</p>
     </div>
   </section>
 

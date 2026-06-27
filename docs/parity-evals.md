@@ -6,12 +6,12 @@ The parity eval harness proves that the `@slackwire/core` template engine produc
 
 Parity is a comparison between two payloads for the same card and state:
 
-- **before**: a hand-authored raw Block Kit fixture. The canonical source of truth is the house-style exemplar JSON in `HANDOVER.md` §11. A human transcribes that exemplar into a `.raw.json` fixture. This is the "known good" Slack payload.
+- **before**: a hand-authored raw Block Kit fixture. The canonical source of truth is the `<state>.raw.json` file co-located with each template under `__parity__/` (for example `templates/ci-cd/1.0.0/__parity__/passed.raw.json`). A human authors it by hand from the house-style card design. This is the "known good" Slack payload.
 - **after**: the engine's `render()` output for the same card, state, payload, and render options.
 
 The harness asserts that **after** equals **before** once both have been normalized (see section 3). Comparison is structural and order-independent, not byte-for-byte string equality.
 
-The critical non-circularity rule: **raw fixtures are NEVER generated from engine output.** The raw fixture is authored by hand from §11 and is the fixed target. The engine adapts to the fixture, never the other way around. The harness has no "bless" / "update" / "write" path for raw fixtures (contrast with the golden suite's `UPDATE_GOLDEN=1`); there is deliberately no `UPDATE_PARITY` mechanism. If the engine drifts, the test fails and a human closes the gap by changing the template, not the fixture.
+The critical non-circularity rule: **raw fixtures are NEVER generated from engine output.** The raw fixture is authored by hand and is the fixed target. The engine adapts to the fixture, never the other way around. The harness has no "bless" / "update" / "write" path for raw fixtures (contrast with the golden suite's `UPDATE_GOLDEN=1`); there is deliberately no `UPDATE_PARITY` mechanism. If the engine drifts, the test fails and a human closes the gap by changing the template, not the fixture.
 
 ## 2. Fixture layout
 
@@ -79,9 +79,9 @@ A test asserting parity reads the raw fixture, renders the engine output, calls 
 
 The harness auto-discovers fixtures, so adding a card requires **no code change** to the harness:
 
-1. Confirm the card's house-style exemplar in `HANDOVER.md` §11. That is your "before" source of truth.
+1. Settle the card's house-style design. The `<state>.raw.json` fixture you author from it is your "before" source of truth.
 2. For each state, author the three files under `templates/<card>/<version>/__parity__/`:
-   - `<state>.raw.json` — transcribe the §11 exemplar payload exactly (blocks, attachments, text). For colored cards put the block tree under `attachments[0].blocks` with `attachments[0].color` set and top-level `blocks: []`.
+   - `<state>.raw.json` — author the "before" Slack payload by hand (blocks, attachments, text). For colored cards put the block tree under `attachments[0].blocks` with `attachments[0].color` set and top-level `blocks: []`.
    - `<state>.data.json` — the input payload the engine will render.
    - `<state>.opts.json` — `{ "themeToken": "#rrggbb", "attribution": true }` for house-style colored cards, or omit the file to default to `attribution: false` and no theme token.
 3. Run the parity suite (section 5).

@@ -26,9 +26,27 @@ const fsAdapter = {
       .map(d => d.name),
 };
 
+// every key in the template's schema.json is required (see "Limits and gotchas")
 const result = render(
   { catalogPath: './templates', name: 'ci-cd', version: '1.0.0' },
-  { title: 'CI passed', ref: 'main', short_sha: 'a1b9f2c', author: 'Naledi' },
+  {
+    title: 'CI passed: healthcart-v2 #2451',
+    ref: 'feature/checkout-fix',
+    short_sha: 'a1b9f2c',
+    description: 'Fix Stitch amount overflow',
+    author: 'Naledi',
+    icon_url: 'https://placehold.co/72x72/2eb67d/ffffff/png?text=PASS',
+    icon_alt: 'passed',
+    steps_text: 'Install -> Lint -> Test -> Build -> Deploy',
+    progress_bar: '5 of 5 - deployed to staging',
+    runner: 'ci-3',
+    test_count: '142',
+    coverage: '84.2%',
+    finished_at: { epoch: 1750000000, format: '{time}', fallback: 'now' },
+    primary_label: 'Open staging',
+    primary_url: 'https://staging.example.com/healthcart-v2',
+    logs_url: 'https://ci.example.com/healthcart-v2/2451/logs',
+  },
   { fs: fsAdapter },
 );
 

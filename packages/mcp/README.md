@@ -68,8 +68,8 @@ Every `channel` input accepts a channel name or a Slack ID; names are resolved t
 
 ## Limits and gotchas
 
-- `blocks` must be a valid JSON string for `post_card` and `update_card`; a non-JSON value throws inside the handler and propagates as an MCP error response.
-- The MCP server does no template rendering and no re-validation. Render and limit-check with `@slackwire/core`'s `render()` (or `validateStructural` / `validateLimits`) first, then pass the resulting blocks to `post_card` / `update_card`. The tools forward blocks as-is.
+- `blocks` must be a JSON-encoded array for `post_card` and `update_card`. A non-JSON or non-array value is rejected with an `isError` tool response (`Invalid blocks: ...`), not a thrown exception.
+- The MCP server does **no** template rendering and **no** per-kind escaping, but it **does** re-validate: `post_card` and `update_card` run `validateStructural` and `validateLimits` on the parsed blocks before sending, and a structure or Slack-limit violation comes back as a `Validation error: ...` tool response. Render and escape with `@slackwire/core`'s `render()` first, then pass the resulting blocks; the tools forward them unchanged once validation passes.
 - Name resolution and its caching are entirely the responsibility of the `Resolver` you inject.
 - The accent / attribution footer is off by default and is a render-time concern in `@slackwire/core`, not something these tools add.
 - Errors thrown inside a tool handler surface to the calling agent as MCP error responses.
