@@ -90,6 +90,19 @@ function buildPermalink(channel: string, ts: string): string {
   return `https://slack.com/archives/${channel}/p${tsClean}`;
 }
 
+function parsePostAt(value: string): number | undefined {
+  if (/^\d+$/.test(value)) {
+    return Number.parseInt(value, 10);
+  }
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) return undefined;
+  return Math.floor(ms / 1000);
+}
+
+function singleLine(text: string): string {
+  return text.replace(/\r?\n/g, ' ');
+}
+
 function looksLikeChannelId(channel: string): boolean {
   return /^[CGD][A-Z0-9]+$/.test(channel);
 }
@@ -123,15 +136,18 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
 
   if (!verb) {
     io.stderr(
-      'Usage: slackwire <card|post|update|delete|react|upload> [options]\n' +
+      'Usage: slackwire <card|post|update|delete|react|upload|search|read|schedule> [options]\n' +
       '\n' +
       'Verbs:\n' +
-      '  post    --channel <c> (--template <n@v> | --blocks <json>|-  | --text <t>)\n' +
-      '  update  --channel <c> --ts <ts> (--template | --blocks | --text)\n' +
-      '  delete  --channel <c> --ts <ts>\n' +
-      '  react   --channel <c> --ts <ts> --emoji <name>\n' +
-      '  upload  --channel <c> --file <path> [--title <t>] [--comment <c>]\n' +
-      '  card    --template <name@ver> --channel <c> [--data <json>] (alias for post --template)\n',
+      '  post      --channel <c> (--template <n@v> | --blocks <json>|-  | --text <t>)\n' +
+      '  update    --channel <c> --ts <ts> (--template | --blocks | --text)\n' +
+      '  delete    --channel <c> --ts <ts>\n' +
+      '  react     --channel <c> --ts <ts> --emoji <name>\n' +
+      '  upload    --channel <c> --file <path> [--title <t>] [--comment <c>]\n' +
+      '  card      --template <name@ver> --channel <c> [--data <json>] (alias for post --template)\n' +
+      '  search    --query <q> [--limit <n>]\n' +
+      '  read      --channel <c> [--limit <n>]\n' +
+      '  schedule  --channel <c> --at <epoch|ISO> (--template | --blocks | --text)\n',
     );
     return 2;
   }
@@ -149,6 +165,9 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
       file: { type: 'string' },
       title: { type: 'string' },
       comment: { type: 'string' },
+      query: { type: 'string' },
+      limit: { type: 'string' },
+      at: { type: 'string' },
       'dry-run': { type: 'boolean' },
       'fail-mode': { type: 'string' },
       version: { type: 'string' },
@@ -570,6 +589,106 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
       if (commentArg) uploadArgs.initial_comment = commentArg;
       await client.uploadV2(uploadArgs);
       io.stdout(`uploaded\t${fileArg}`);
+      return 0;
+    });
+  }
+
+  if (verb === 'search') {
+    const queryArg = values['query'] as string | undefined;
+    if (!queryArg) {
+      io.stderr('--query is required for search command');
+      return 2;
+    }
+
+    return execWithFailMode(async () => {
+      const client = new SlackClient(realToken);
+      const searchOptions: { count?: number } = {};
+      const limitArg = values['limit'] as string | undefined;
+      if (limitArg !== undefined) {
+        const count = Number.parseInt(limitArg, 10);
+        if (Number.isFinite(count)) searchOptions.count = count;
+      }
+      const matches = await client.search(queryArg, searchOptions);
+      for (const match of matches) {
+        io.stdout(`${match.ts}\t${match.channel ?? ''}\t${singleLine(match.text ?? '')}`);
+      }
+      return 0;
+    });
+  }
+
+  if (verb === 'read') {
+    const channelArg = values['channel'] as string | undefined;
+    if (!channelArg) {
+      io.stderr('--channel is required for read command');
+      return 2;
+    }
+
+    return execWithFailMode(async () => {
+      const client = new SlackClient(realToken);
+      const channel = await resolveChannel(client, channelArg);
+      const histArgs: { channel: string; limit?: number } = { channel };
+      const limitArg = values['limit'] as string | undefined;
+      if (limitArg !== undefined) {
+        const limit = Number.parseInt(limitArg, 10);
+        if (Number.isFinite(limit)) histArgs.limit = limit;
+      }
+      const messages = await client.history(histArgs);
+      for (const message of messages) {
+        io.stdout(`${message.ts}\t${singleLine(message.text ?? '')}`);
+      }
+      return 0;
+    });
+  }
+
+  if (verb === 'schedule') {
+    const channelArg = values['channel'] as string | undefined;
+    if (!channelArg) {
+      io.stderr('--channel is required for schedule command');
+      return 2;
+    }
+    const atArg = values['at'] as string | undefined;
+    if (!atArg) {
+      io.stderr('--at is required for schedule command');
+      return 2;
+    }
+    const postAt = parsePostAt(atArg);
+    if (postAt === undefined) {
+      io.stderr('--at must be a Unix epoch (seconds) or an ISO 8601 date');
+      return 2;
+    }
+
+    const source = await resolveMessageSource();
+    if (source.kind === 'error') {
+      if (source.code === -1) {
+        io.stderr('schedule requires one of --template, --blocks, or --text');
+        return 2;
+      }
+      return source.code;
+    }
+
+    if (dryRun) {
+      const dryOut: { post_at: number; blocks?: unknown[]; text: string } = {
+        post_at: postAt,
+        text: source.text,
+      };
+      if (source.kind !== 'text') {
+        dryOut.blocks = source.blocks as unknown[];
+      }
+      io.stdout(JSON.stringify(dryOut, null, 2));
+      return 0;
+    }
+
+    return execWithFailMode(async () => {
+      const client = new SlackClient(realToken);
+      const channel = await resolveChannel(client, channelArg);
+      let schedArgs: { channel: string; postAt: number; text?: string; blocks?: unknown[] };
+      if (source.kind === 'text') {
+        schedArgs = { channel, postAt, text: source.text };
+      } else {
+        schedArgs = { channel, postAt, text: source.text, blocks: source.blocks as unknown[] };
+      }
+      const result = await client.schedule(schedArgs);
+      io.stdout(`scheduled\t${result.scheduledMessageId}`);
       return 0;
     });
   }

@@ -57,6 +57,7 @@ vi.mock('@slackwire/core', async () => {
     uploadV2: mockUploadV2,
     history: vi.fn().mockResolvedValue([]),
     search: vi.fn().mockResolvedValue([]),
+    schedule: vi.fn().mockResolvedValue({ scheduledMessageId: 'Q000000' }),
   }));
 
   const Resolver = vi.fn().mockImplementation(() => ({
@@ -892,5 +893,185 @@ describe('CLI', () => {
     expect(code).toBe(0);
     expect(mockResolveChannel).toHaveBeenCalledWith('general');
     expect(mockPost).toHaveBeenCalledWith(expect.objectContaining({ channel: 'C456' }));
+  });
+
+  it('searches messages and prints one tab-separated line per match', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slackwire/core');
+
+    const mockSearch = vi.fn().mockResolvedValue([
+      { ts: '333.000', channel: 'C999', text: 'deploy finished' },
+      { ts: '444.000', text: 'no channel here' },
+    ]);
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: mockSearch,
+      schedule: vi.fn(),
+    }));
+
+    const io = makeIO();
+    const code = await run(['search', '--query', 'deploy', '--limit', '5'], io);
+
+    expect(code).toBe(0);
+    expect(mockSearch).toHaveBeenCalledWith('deploy', expect.objectContaining({ count: 5 }));
+    expect(io.out).toEqual([
+      '333.000\tC999\tdeploy finished',
+      '444.000\t\tno channel here',
+    ]);
+  });
+
+  it('exits 2 when search has no --query', async () => {
+    const { run } = await import('./run.js');
+
+    const io = makeIO();
+    const code = await run(['search'], io);
+
+    expect(code).toBe(2);
+    expect(io.err.length).toBeGreaterThan(0);
+  });
+
+  it('reads channel history and prints one tab-separated line per message', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slackwire/core');
+
+    const mockHistory = vi.fn().mockResolvedValue([
+      { ts: '111.000', text: 'first message' },
+      { ts: '222.000', text: 'second\nmessage' },
+    ]);
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: mockHistory,
+      search: vi.fn().mockResolvedValue([]),
+      schedule: vi.fn(),
+    }));
+
+    const io = makeIO();
+    const code = await run(['read', '--channel', 'C123', '--limit', '2'], io);
+
+    expect(code).toBe(0);
+    expect(mockHistory).toHaveBeenCalledWith(expect.objectContaining({ channel: 'C123', limit: 2 }));
+    expect(io.out).toEqual(['111.000\tfirst message', '222.000\tsecond message']);
+  });
+
+  it('exits 2 when read has no --channel', async () => {
+    const { run } = await import('./run.js');
+
+    const io = makeIO();
+    const code = await run(['read'], io);
+
+    expect(code).toBe(2);
+    expect(io.err.length).toBeGreaterThan(0);
+  });
+
+  it('assembles and prints a scheduled message under schedule --dry-run without a token', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slackwire/core');
+
+    const mockSchedule = vi.fn();
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+      schedule: mockSchedule,
+    }));
+
+    const out: string[] = [];
+    const err: string[] = [];
+    const io: RunIO & { out: string[]; err: string[] } = {
+      out,
+      err,
+      stdout: (line: string) => { out.push(line); },
+      stderr: (line: string) => { err.push(line); },
+      env: {},
+    };
+
+    const code = await run([
+      'schedule',
+      '--channel', 'C123',
+      '--at', '1700000000',
+      '--text', 'send me later',
+      '--dry-run',
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockSchedule).not.toHaveBeenCalled();
+    const parsed = JSON.parse(out.join('\n')) as { post_at: number; text: string };
+    expect(parsed.post_at).toBe(1700000000);
+    expect(parsed.text).toBe('send me later');
+  });
+
+  it('schedules a message at an ISO time and prints the scheduled id', async () => {
+    const { run } = await import('./run.js');
+    const { SlackClient } = await import('@slackwire/core');
+
+    const mockSchedule = vi.fn().mockResolvedValue({ scheduledMessageId: 'Q123ABC' });
+    (SlackClient as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      post: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      react: vi.fn(),
+      uploadV2: vi.fn(),
+      history: vi.fn().mockResolvedValue([]),
+      search: vi.fn().mockResolvedValue([]),
+      schedule: mockSchedule,
+    }));
+
+    const io = makeIO();
+    const code = await run([
+      'schedule',
+      '--channel', 'C123',
+      '--at', '2030-01-01T00:00:00Z',
+      '--text', 'happy new year',
+    ], io);
+
+    expect(code).toBe(0);
+    expect(mockSchedule).toHaveBeenCalledWith(expect.objectContaining({
+      channel: 'C123',
+      postAt: Math.floor(Date.parse('2030-01-01T00:00:00Z') / 1000),
+      text: 'happy new year',
+    }));
+    expect(io.out[0]).toBe('scheduled\tQ123ABC');
+  });
+
+  it('exits 2 when schedule --at is not a valid time', async () => {
+    const { run } = await import('./run.js');
+
+    const io = makeIO();
+    const code = await run([
+      'schedule',
+      '--channel', 'C123',
+      '--at', 'not-a-date',
+      '--text', 'x',
+    ], io);
+
+    expect(code).toBe(2);
+    expect(io.err.some(e => e.includes('--at'))).toBe(true);
+  });
+
+  it('exits 2 when schedule has no body source', async () => {
+    const { run } = await import('./run.js');
+
+    const io = makeIO();
+    const code = await run([
+      'schedule',
+      '--channel', 'C123',
+      '--at', '1700000000',
+    ], io);
+
+    expect(code).toBe(2);
+    expect(io.err.length).toBeGreaterThan(0);
   });
 });

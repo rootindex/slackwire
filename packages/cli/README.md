@@ -20,28 +20,33 @@ export SLACK_TOKEN=xoxb-...
 slackwire post --channel C0XXXXXXXXX --text "hello from slackwire"
 ```
 
-`post`, `update`, and `card` print `<ts>\t<permalink>` on success. `delete`, `react`, and `upload` print a short confirmation line.
+`post`, `update`, and `card` print `<ts>\t<permalink>` on success. `delete`, `react`, `upload`, and `schedule` print a short confirmation line. `search` and `read` print one tab-separated line per result.
 
 ## Verbs
 
 ```
-post    --channel <c> (--template <n@v> | --blocks <json>|-  | --text <t>)
-update  --channel <c> --ts <ts> (--template | --blocks | --text)
-delete  --channel <c> --ts <ts>
-react   --channel <c> --ts <ts> --emoji <name>
-upload  --channel <c> --file <path> [--title <t>] [--comment <c>]
-card    --template <name@ver> --channel <c> [--data <json>]   (alias for post --template)
+post      --channel <c> (--template <n@v> | --blocks <json>|-  | --text <t>)
+update    --channel <c> --ts <ts> (--template | --blocks | --text)
+delete    --channel <c> --ts <ts>
+react     --channel <c> --ts <ts> --emoji <name>
+upload    --channel <c> --file <path> [--title <t>] [--comment <c>]
+card      --template <name@ver> --channel <c> [--data <json>]   (alias for post --template)
+search    --query <q> [--limit <n>]
+read      --channel <c> [--limit <n>]
+schedule  --channel <c> --at <epoch|ISO> (--template | --blocks | --text)
 ```
 
 Running `slackwire` with no verb prints usage and exits 2. An unknown verb also exits 2.
 
-For `post` and `update`, the body comes from exactly one of three sources:
+For `post`, `update`, and `schedule`, the body comes from exactly one of three sources:
 
 - `--template <name@ver>` with optional `--data <json>` and `--catalog <path>`. Version defaults to `1.0.0`.
 - `--blocks '<json>'`: a JSON array of blocks, or `{ "blocks": [...], "attachments": [...], "text": "..." }`. `--blocks -` reads the JSON from stdin. Structural and limit validation runs before sending, and fallback text is auto-derived from the blocks when `--text` is absent.
 - `--text "<plain>"`.
 
 For `update`, the body sources are optional: `update --channel --ts` with no body still issues a `chat.update` call.
+
+`search` queries `search.messages` and prints one `<ts>\t<channel>\t<text>` line per match. `read` pulls `conversations.history` for a channel and prints one `<ts>\t<text>` line per message, newest first; `--limit` caps the count. `schedule` posts later via `chat.scheduleMessage`: `--at` takes a Unix epoch in seconds or an ISO 8601 date, and on success it prints `scheduled\t<scheduled_message_id>`. Under `--dry-run`, `schedule` prints the assembled `{post_at, text, blocks?}` and calls no API.
 
 ## Flags
 
@@ -54,6 +59,9 @@ For `update`, the body sources are optional: `update --channel --ts` with no bod
 | `--blocks <json>` or `--blocks -` | Raw Block Kit. `-` reads stdin. |
 | `--text <t>` | Plain message text, or fallback text alongside `--blocks`. |
 | `--emoji <name>` | Reaction emoji name, without colons. |
+| `--query <q>` | Search query for `search`. |
+| `--limit <n>` | Result cap for `search` (count) and `read` (history limit). |
+| `--at <epoch\|ISO>` | Post time for `schedule`: a Unix epoch in seconds or an ISO 8601 date. |
 | `--file <path>` | File to upload. |
 | `--title <t>` / `--comment <c>` | File title and initial comment for `upload`. |
 | `--catalog <path>` | Template catalog directory. Overrides `SLACK_CATALOG` (default `./templates`). |
@@ -83,7 +91,7 @@ On success, `post`, `update`, and `card` print one tab-separated line:
 <ts>	<permalink>
 ```
 
-`delete` prints `deleted\t<ts>`, `react` prints `reacted\t<emoji>`, `upload` prints `uploaded\t<path>`. With `--dry-run`, `post`, `update`, and `card` print the assembled message as pretty-printed JSON instead.
+`delete` prints `deleted\t<ts>`, `react` prints `reacted\t<emoji>`, `upload` prints `uploaded\t<path>`, `schedule` prints `scheduled\t<scheduled_message_id>`. `search` prints `<ts>\t<channel>\t<text>` per match and `read` prints `<ts>\t<text>` per message. With `--dry-run`, `post`, `update`, `card`, and `schedule` print the assembled message as pretty-printed JSON instead.
 
 ## Exit codes and fail mode
 
