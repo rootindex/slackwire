@@ -1,0 +1,7 @@
+# Code owners for slackwire.
+# https://docs.gitlab.com/ee/user/project/codeowners/
+#
+# The maintainer is requested for review on every merge request by default.
+# Owners are GitLab handles, never email addresses.
+
+* @rootindex
