@@ -191,4 +191,100 @@ describe('mcp server', () => {
       await cleanup();
     }
   });
+
+  it('posts a plain text message via the post tool', async () => {
+    const slackClient = makeMockClient();
+    const resolver = makeMockResolver({ general: 'C123' });
+    const { client, cleanup } = await createTestPair(slackClient, resolver);
+    try {
+      const result = await client.callTool({
+        name: 'post',
+        arguments: { channel: 'general', text: 'hello world' },
+      });
+      expect(slackClient.post).toHaveBeenCalledWith(
+        expect.objectContaining({ channel: 'C123', text: 'hello world' }),
+      );
+      const content = result.content as Array<{ type: string; text: string }>;
+      const parsed = JSON.parse(content[0]!.text) as Record<string, unknown>;
+      expect(parsed['ts']).toBe('1234567890.000001');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('adds a reaction via the react tool', async () => {
+    const slackClient = makeMockClient();
+    const resolver = makeMockResolver({ general: 'C123' });
+    const { client, cleanup } = await createTestPair(slackClient, resolver);
+    try {
+      const result = await client.callTool({
+        name: 'react',
+        arguments: { channel: 'general', ts: '1234567890.000001', name: 'tada' },
+      });
+      expect(slackClient.react).toHaveBeenCalledWith('C123', '1234567890.000001', 'tada');
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content[0]!.text).toBe('ok');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('uploads a file via the upload tool', async () => {
+    const slackClient = makeMockClient();
+    const resolver = makeMockResolver({ general: 'C123' });
+    const { client, cleanup } = await createTestPair(slackClient, resolver);
+    try {
+      const result = await client.callTool({
+        name: 'upload',
+        arguments: { channel: 'general', filename: 'report.txt', content: 'file body' },
+      });
+      expect(slackClient.uploadV2).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel_id: 'C123',
+          filename: 'report.txt',
+          content: 'file body',
+        }),
+      );
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content[0]!.text).toBe('ok');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('resolves a user name via the resolve tool with type user', async () => {
+    const slackClient = makeMockClient();
+    const resolver = {
+      resolveChannel: vi.fn().mockResolvedValue(undefined),
+      resolveUser: vi.fn().mockResolvedValue('U999'),
+    } as unknown as Resolver;
+    const { client, cleanup } = await createTestPair(slackClient, resolver);
+    try {
+      const result = await client.callTool({
+        name: 'resolve',
+        arguments: { name: 'alice', type: 'user' },
+      });
+      expect(resolver.resolveUser).toHaveBeenCalledWith('alice');
+      expect(resolver.resolveChannel).not.toHaveBeenCalled();
+      const content = result.content as Array<{ type: string; text: string }>;
+      const parsed = JSON.parse(content[0]!.text) as Record<string, unknown>;
+      expect(parsed['id']).toBe('U999');
+      expect(parsed['type']).toBe('user');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('errors on an unknown tool name', async () => {
+    const slackClient = makeMockClient();
+    const resolver = makeMockResolver();
+    const { client, cleanup } = await createTestPair(slackClient, resolver);
+    try {
+      await expect(
+        client.callTool({ name: 'does_not_exist', arguments: {} }),
+      ).rejects.toThrow(/Unknown tool/);
+    } finally {
+      await cleanup();
+    }
+  });
 });

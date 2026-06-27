@@ -103,6 +103,48 @@ test:
     - if: '$CI_COMMIT_TAG'
 
 # =============================================================================
+# COVERAGE  ::  v8 coverage gate (per-package thresholds in vitest.config.ts)
+# =============================================================================
+# Runs the v8-instrumented suite in every package and fails the pipeline if any
+# package drops below the floors declared in its vitest.config.ts. The floors
+# sit a few points below measured coverage, so this is a regression guard, not a
+# flaky ceiling. It is BLOCKING (no allow_failure): the gate was verified to
+# pass locally with >=6 points of margin on every metric, which comfortably
+# absorbs minor cross-Node-version variance in v8 branch counting.
+#
+# The lcov + text reports are kept as artifacts for inspection on each run.
+test:coverage:
+  stage: test
+  image: node:22
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+  before_script:
+    - corepack enable || npm install -g pnpm@${PNPM_VERSION}
+    - pnpm config set store-dir "$PNPM_STORE"
+    - pnpm install --frozen-lockfile
+    # Build first: the CLI entry test bundles src/main.ts with esbuild, which
+    # resolves @slackwire/core to its dist/. On a clean runner that dist does
+    # not exist yet, so the bundle (and the job) fails without a prior build.
+    - pnpm -r build
+  script:
+    - pnpm -r test:coverage
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - packages/core/coverage/
+      - packages/cli/coverage/
+      - packages/mcp/coverage/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+
+# =============================================================================
 # COMMIT EMAIL GUARD  ::  privacy safety net for leaked personal authorship
 # =============================================================================
 # WHY: a commit carries TWO email fields, author AND committer. Server-side
