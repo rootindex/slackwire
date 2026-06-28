@@ -1,4 +1,4 @@
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 export * from './types.js';
 export * from './errors.js';
 export { escape } from './escaping.js';

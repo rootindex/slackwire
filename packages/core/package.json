@@ -1,6 +1,6 @@
 {
   "name": "@slackwire/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Slack client, template engine, and render pipeline",
   "license": "MIT",
   "author": { "name": "Francois Raubenheimer", "url": "https://gitlab.com/slackwire/slackwire" },

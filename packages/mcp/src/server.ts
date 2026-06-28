@@ -133,7 +133,7 @@ export function createMcpServer(
   resolver: Resolver | null,
 ): McpServerHandle {
   const server = new Server(
-    { name: 'slackwire-mcp', version: '0.1.0' },
+    { name: 'slackwire-mcp', version: '0.1.1' },
     { capabilities: { tools: {} } },
   );
 
