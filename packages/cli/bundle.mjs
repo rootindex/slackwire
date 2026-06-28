@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
 import { chmod } from 'node:fs/promises';
+import { cpSync, existsSync } from 'node:fs';
 
 const result = await build({
   entryPoints: ['src/main.ts'],
@@ -19,3 +20,10 @@ if (result.errors.length > 0) {
 }
 
 await chmod('dist/bundle.cjs', 0o755);
+
+cpSync('../../templates', 'dist/templates', { recursive: true });
+
+if (!existsSync('dist/templates/ci-cd/1.0.0/skeleton.json')) {
+  console.error('bundle: templates were not copied into dist/templates');
+  process.exit(1);
+}

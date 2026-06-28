@@ -1,6 +1,6 @@
 {
   "name": "@slackwire/mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MCP server exposing slackwire Slack operations as tools",
   "author": { "name": "Francois Raubenheimer", "url": "https://gitlab.com/slackwire/slackwire" },
   "type": "module",

@@ -3,6 +3,6 @@ import { CLI_VERSION } from './index.js';
 
 describe('cli', () => {
   it('exports CLI_VERSION', () => {
-    expect(CLI_VERSION).toBe('0.1.1');
+    expect(CLI_VERSION).toBe('0.1.2');
   });
 });

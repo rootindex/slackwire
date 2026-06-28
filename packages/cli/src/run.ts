@@ -50,6 +50,16 @@ function buildFsAdapter() {
   };
 }
 
+function resolveCatalogPath(catalogArg: string | undefined, catalogEnv: string | undefined): string {
+  const override = catalogArg ?? catalogEnv;
+  if (override) return override;
+  if (typeof __dirname !== 'undefined') {
+    const bundled = join(__dirname, 'templates');
+    if (existsSync(bundled)) return bundled;
+  }
+  return join(process.cwd(), 'templates');
+}
+
 function loadPartials(catalogPath: string): Record<string, object[]> {
   const dir = join(catalogPath, 'partials');
   if (!existsSync(dir)) return {};
@@ -232,9 +242,7 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
     }
 
     const [templateName, templateVersion = '1.0.0'] = templateStr.split('@');
-    const catalogPath = (values['catalog'] as string | undefined) ??
-      processEnv['SLACK_CATALOG'] ??
-      join(process.cwd(), 'templates');
+    const catalogPath = resolveCatalogPath(values['catalog'] as string | undefined, processEnv['SLACK_CATALOG']);
 
     const dataStr = values['data'] as string | undefined;
     let payload: Record<string, unknown> = {};
@@ -325,9 +333,7 @@ export async function run(argv: string[], io: RunIO): Promise<number> {
 
     if (templateStr) {
       const [templateName, templateVersion = '1.0.0'] = templateStr.split('@');
-      const catalogPath = (values['catalog'] as string | undefined) ??
-        processEnv['SLACK_CATALOG'] ??
-        join(process.cwd(), 'templates');
+      const catalogPath = resolveCatalogPath(values['catalog'] as string | undefined, processEnv['SLACK_CATALOG']);
       const dataStr = values['data'] as string | undefined;
       let payload: Record<string, unknown> = {};
       if (dataStr) {

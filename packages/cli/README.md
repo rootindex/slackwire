@@ -40,7 +40,7 @@ Running `slackwire` with no verb prints usage and exits 2. An unknown verb also 
 
 For `post`, `update`, and `schedule`, the body comes from exactly one of three sources:
 
-- `--template <name@ver>` with optional `--data <json>` and `--catalog <path>`. Version defaults to `1.0.0`.
+- `--template <name@ver>` with optional `--data <json>`. The catalog ships bundled with the package, so this works out of the box; pass `--catalog <path>` only to use a custom catalog. Version defaults to `1.0.0`.
 - `--blocks '<json>'`: a JSON array of blocks, or `{ "blocks": [...], "attachments": [...], "text": "..." }`. `--blocks -` reads the JSON from stdin. Structural and limit validation runs before sending, and fallback text is auto-derived from the blocks when `--text` is absent.
 - `--text "<plain>"`.
 
@@ -64,7 +64,7 @@ For `update`, the body sources are optional: `update --channel --ts` with no bod
 | `--at <epoch\|ISO>` | Post time for `schedule`: a Unix epoch in seconds or an ISO 8601 date. |
 | `--file <path>` | File to upload. |
 | `--title <t>` / `--comment <c>` | File title and initial comment for `upload`. |
-| `--catalog <path>` | Template catalog directory. Overrides `SLACK_CATALOG` (default `./templates`). |
+| `--catalog <path>` | Custom template catalog directory. Overrides the bundled catalog and `SLACK_CATALOG`. |
 | `--theme <#rrggbb>` | Accent color. Needs `SLACK_ATTRIBUTION=true` to render the colored bar. |
 | `--dry-run` | Render the message from `--template` / `--blocks` / `--text` and print the assembled JSON (`{blocks, text, attachments?}`) to stdout. Works on `post`, `update`, and `card`. No token required, no Slack API call. |
 | `--fail-mode <non-blocking\|block>` | Failure behavior. Defaults to `non-blocking`. |
@@ -77,7 +77,7 @@ For `update`, the body sources are optional: `update --channel --ts` with no bod
 | `SLACK_TOKEN_BASE64` | Base64-encoded token, used if `SLACK_TOKEN` is unset. |
 | `SLACK_TOKEN_FILE` | Path to a token file, used if the two above are unset (Docker-secret pattern). |
 | `SLACK_ATTRIBUTION` | `true` to render the legacy colored accent bar. Off by default. |
-| `SLACK_CATALOG` | Template catalog directory. Default `./templates`. |
+| `SLACK_CATALOG` | Custom template catalog directory. Overrides the bundled catalog. |
 | `SLACK_TEAM_ID` | Team ID used for channel/user name resolution. Default `T000`. |
 | `HTTPS_PROXY` / `NO_PROXY` | Proxy passthrough for egress-restricted runners. |
 
@@ -111,6 +111,6 @@ On success, `post`, `update`, and `card` print one tab-separated line:
 - Slack hard limits enforced before sending: 50 blocks, section text 3000 chars, header 150, button label 75, image blocks require `alt_text`. Violations exit 2.
 - The colored bar rides on a legacy attachment, so Slack may show an "Added by &lt;app&gt;" footer. A native Alert block is the planned footer-free path.
 - `attachments[].blocks` are not structurally validated; only top-level blocks are checked.
-- The Docker image bundles only the CLI, not the `templates/` catalog. Mount your catalog and set `SLACK_CATALOG` (or `--catalog`) to use templates in a container.
+- The Docker image ships the bundled `templates/` catalog alongside the CLI, so `--template` works in a container out of the box. Mount your own catalog and set `SLACK_CATALOG` (or `--catalog`) only to use custom templates.
 
 See the [root README](../../README.md) for full examples and the [CI/GitLab guide](../../docs/gitlab-integration.md).
