@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-06-28
+
+### Fixed
+
+- The CLI now ships its template catalog inside the published `slackwire` package (and the Docker image), so `--template` works out of the box. Previously a fresh `npm install` of `slackwire` shipped no templates, so `slackwire card --template ci-cd@1.0.0` failed with `ENOENT` (exit 2) unless you pointed `--catalog` or `SLACK_CATALOG` at your own copy of the catalog.
+
 ### Changed
 
 - The `audit:dependencies` CI job is now a passing, blocking gate (no longer `allow_failure`). The single remaining advisory it would otherwise trip on, GHSA-fx2h-pf6j-xcff, is a dev-only vite advisory pulled transitively by vitest, never shipped in a published package and unfixable without a vitest major bump. It is explicitly suppressed via `pnpm.auditConfig.ignoreGhsas` in the root `package.json`.
@@ -35,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `@slackwire/mcp`: a Model Context Protocol server exposing the same core engine as tool calls.
 - Published to npm.
 
-[Unreleased]: https://gitlab.com/slackwire/slackwire/-/compare/v0.1.1...HEAD
+[Unreleased]: https://gitlab.com/slackwire/slackwire/-/compare/v0.1.2...HEAD
+[0.1.2]: https://gitlab.com/slackwire/slackwire/-/releases/v0.1.2
 [0.1.1]: https://gitlab.com/slackwire/slackwire/-/releases/v0.1.1
 [0.1.0]: https://gitlab.com/slackwire/slackwire/-/releases/v0.1.0

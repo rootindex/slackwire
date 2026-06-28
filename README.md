@@ -128,7 +128,7 @@ slackwire card --template ci-cd@1.0.0 --channel C0XXXXXXXXX \
   --data '{ ...the 16 ci-cd fields shown above... }'
 ```
 
-Add `--theme '#2eb67d'` to set an accent color (see Limits & gotchas for the caveat). The template catalog defaults to `./templates` and can be overridden with `--catalog <path>` or the `SLACK_CATALOG` env var.
+Add `--theme '#2eb67d'` to set an accent color (see Limits & gotchas for the caveat). The `ci-cd`, `incident`, and `deploy` templates ship bundled inside the `slackwire` package, so `--template` works out of the box with no extra setup. Point `--catalog <path>` or the `SLACK_CATALOG` env var at a directory to use your own custom catalog instead.
 
 ### Update and live-morph
 
@@ -189,7 +189,7 @@ A bot token (`xoxb-...`) or a user token (`xoxp-...`) both work.
 | `SLACK_TOKEN_BASE64` | Base64-encoded token, used if `SLACK_TOKEN` is unset. |
 | `SLACK_TOKEN_FILE` | Path to a file holding the token, used if the two above are unset. |
 | `SLACK_ATTRIBUTION` | Set to `true` to render the colored accent bar (rides on a legacy attachment). Off by default. |
-| `SLACK_CATALOG` | Template catalog directory. Defaults to `./templates`. |
+| `SLACK_CATALOG` | Custom template catalog directory. Overrides the bundled catalog. |
 | `SLACK_TEAM_ID` | Team ID used when resolving channel and user names. Defaults to `T000`. |
 | `HTTPS_PROXY` / `NO_PROXY` | Standard proxy passthrough for egress-restricted runners. |
 
@@ -235,7 +235,7 @@ slackwire post --channel C0XXXXXXXXX --text "hi" --fail-mode block
 - Slack hard limits are enforced before sending: 50 blocks max per message, section text 3000 characters, header 150, button label 75, image blocks require `alt_text`. Exceeding any of these is a validation error (exit 2), not a silent truncation.
 - The colored accent bar uses a legacy Slack attachment. Setting `--theme` plus `SLACK_ATTRIBUTION=true` enables it, but because it is a legacy attachment Slack may render an "Added by &lt;app&gt;" footer on the message. A native Alert block is the planned footer-free path.
 - `attachments[].blocks` are not yet structurally validated by the engine. Only top-level blocks are length- and `alt_text`-checked. If you move a block tree into an attachment (the house-style colored-card pattern), respect Slack's limits yourself.
-- The Docker image contains only the bundled CLI, not the `templates/` catalog. To use templates in a container, mount your catalog and point `SLACK_CATALOG` (or `--catalog`) at the mount.
+- The Docker image ships the bundled `templates/` catalog alongside the CLI, so `--template` works in a container out of the box. Mount your own catalog and point `SLACK_CATALOG` (or `--catalog`) at it only when you want to use custom templates.
 
 ## MCP server
 

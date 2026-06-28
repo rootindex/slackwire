@@ -457,7 +457,7 @@ slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXX
     </div>
 
     <h3>3. Distroless Docker image</h3>
-    <p>Built from the included <code>Dockerfile</code> (a distroless <code>nodejs20</code> base with only the bundled CLI inside).</p>
+    <p>Built from the included <code>Dockerfile</code> (a distroless <code>nodejs20</code> base with the bundled CLI and its template catalog inside).</p>
     <div class="code">
       <div class="code-head"><span class="code-lang">sh</span><button class="copy-btn">Copy</button></div>
       <pre><span class="k">docker</span> build -t slackwire:dev .
@@ -465,7 +465,7 @@ slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXX
     </div>
     <div class="callout note">
       <span class="ct">Note</span>
-      <p>The image contains only the CLI, <strong>not</strong> the <code>templates/</code> catalog. To use templates in a container, mount your catalog and point <code>SLACK_CATALOG</code> (or <code>--catalog</code>) at the mount. See <a href="#templates">Templates</a>.</p>
+      <p>The image ships the bundled <code>templates/</code> catalog alongside the CLI, so <code>--template</code> works in a container out of the box. Mount your own catalog and point <code>SLACK_CATALOG</code> (or <code>--catalog</code>) at it only to use custom templates. See <a href="#templates">Templates</a>.</p>
     </div>
   </section>
 
@@ -496,7 +496,7 @@ slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXX
         <tr><td><code>SLACK_TOKEN_BASE64</code></td><td>Base64-encoded token, used if <code>SLACK_TOKEN</code> is unset.</td><td>none</td></tr>
         <tr><td><code>SLACK_TOKEN_FILE</code></td><td>Path to a token file, used if the two above are unset.</td><td>none</td></tr>
         <tr><td><code>SLACK_ATTRIBUTION</code></td><td>Set to <code>true</code> to render the colored accent bar (rides on a legacy attachment). See <a href="#limits">the caveat</a>.</td><td><code>off</code></td></tr>
-        <tr><td><code>SLACK_CATALOG</code></td><td>Template catalog directory.</td><td><code>./templates</code></td></tr>
+        <tr><td><code>SLACK_CATALOG</code></td><td>Custom template catalog directory (overrides the bundled catalog).</td><td><code>bundled</code></td></tr>
         <tr><td><code>SLACK_TEAM_ID</code></td><td>Team ID used when resolving channel and user names.</td><td><code>T000</code></td></tr>
         <tr><td><code>HTTPS_PROXY</code> / <code>NO_PROXY</code></td><td>Standard proxy passthrough for egress-restricted runners.</td><td>none</td></tr>
       </tbody>
@@ -549,7 +549,7 @@ slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXX
         <tr><td><code>--at &lt;epoch|ISO&gt;</code></td><td>Post time for <code>schedule</code>: a Unix epoch in seconds or an ISO 8601 date.</td></tr>
         <tr><td><code>--file &lt;path&gt;</code></td><td>File to upload.</td></tr>
         <tr><td><code>--title &lt;t&gt;</code> / <code>--comment &lt;c&gt;</code></td><td>File title and initial comment for <code>upload</code>.</td></tr>
-        <tr><td><code>--catalog &lt;path&gt;</code></td><td>Template catalog directory. Overrides <code>SLACK_CATALOG</code> (default <code>./templates</code>).</td></tr>
+        <tr><td><code>--catalog &lt;path&gt;</code></td><td>Custom template catalog directory. Overrides the bundled catalog and <code>SLACK_CATALOG</code>.</td></tr>
         <tr><td><code>--theme &lt;#rrggbb&gt;</code></td><td>Accent color. Needs <code>SLACK_ATTRIBUTION=true</code> to render the colored bar.</td></tr>
         <tr><td><code>--dry-run</code></td><td>Render and print the assembled JSON to stdout. No token, no API call. Works on <code>post</code>, <code>update</code>, <code>card</code>, <code>schedule</code>.</td></tr>
         <tr><td><code>--fail-mode &lt;non-blocking|block&gt;</code></td><td>Failure behavior. Defaults to <code>non-blocking</code>.</td></tr>
@@ -589,7 +589,7 @@ slackwire <span class="k">post</span> <span class="f">--channel</span> C0XXXXXXX
       <div class="code-head"><span class="code-lang">sh</span><button class="copy-btn">Copy</button></div>
       <pre>slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.0.0 <span class="f">--channel</span> C0XXXXXXXXX <span class="f">--data</span> <span class="s">'{ ...the 16 ci-cd fields shown above... }'</span></pre>
     </div>
-    <p>Add <code>--theme '#2eb67d'</code> to set an accent color (see <a href="#limits">the caveat</a>). The catalog defaults to <code>./templates</code> and is overridden with <code>--catalog &lt;path&gt;</code> or <code>SLACK_CATALOG</code>.</p>
+    <p>Add <code>--theme '#2eb67d'</code> to set an accent color (see <a href="#limits">the caveat</a>). The catalog ships bundled with slackwire, so <code>--template</code> works out of the box; point <code>--catalog &lt;path&gt;</code> or <code>SLACK_CATALOG</code> at a directory to use a custom catalog.</p>
 
     <h3>update &middot; live-morph</h3>
     <p><code>update</code> rewrites a message in place by its timestamp. The canonical pattern is to post a <code>running</code> card, capture its <code>ts</code>, then morph it to <code>passed</code> or <code>failed</code> when the job finishes. This is what makes a single Slack message track a job from start to finish instead of spamming the channel.</p>
@@ -750,7 +750,7 @@ slackwire <span class="k">card</span> <span class="f">--template</span> ci-cd@1.
     </div>
     <div class="callout note">
       <span class="ct">Note</span>
-      <p>Templates live in <strong>your repo catalog</strong> (default <code>./templates</code>), not baked into the Docker image. In a container, mount the catalog and point <code>SLACK_CATALOG</code> or <code>--catalog</code> at the mount.</p>
+      <p>The bundled templates ship inside the <code>slackwire</code> package and the Docker image, so <code>--template</code> works out of the box. Point <code>SLACK_CATALOG</code> or <code>--catalog</code> at a directory only to use a custom catalog.</p>
     </div>
   </section>
 

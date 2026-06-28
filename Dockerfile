@@ -20,6 +20,7 @@ COPY packages/core/src packages/core/src
 COPY packages/cli/tsconfig.json packages/cli/tsconfig.json
 COPY packages/cli/src packages/cli/src
 COPY packages/cli/bundle.mjs packages/cli/bundle.mjs
+COPY templates ./templates
 
 RUN pnpm --filter @slackwire/core build
 RUN pnpm --filter slackwire build
@@ -30,5 +31,6 @@ FROM gcr.io/distroless/nodejs20-debian12
 WORKDIR /app
 
 COPY --from=builder /build/packages/cli/dist/bundle.cjs ./bundle.cjs
+COPY --from=builder /build/packages/cli/dist/templates ./templates
 
 ENTRYPOINT ["/nodejs/bin/node", "/app/bundle.cjs"]
