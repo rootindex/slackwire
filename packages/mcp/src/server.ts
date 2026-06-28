@@ -7,6 +7,9 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { validateStructural, validateLimits, StructuralError, LimitError } from '@slackwire/core';
 import type { SlackClient, Resolver } from '@slackwire/core';
 
+export const NO_TOKEN_MESSAGE =
+  'No Slack token configured. Set SLACK_TOKEN, SLACK_TOKEN_BASE64, or SLACK_TOKEN_FILE.';
+
 const log = (msg: string): void => {
   process.stderr.write(`[slackwire-mcp] ${msg}\n`);
 };
@@ -126,8 +129,8 @@ export interface McpServerHandle {
 }
 
 export function createMcpServer(
-  slackClient: SlackClient,
-  resolver: Resolver,
+  slackClient: SlackClient | null,
+  resolver: Resolver | null,
 ): McpServerHandle {
   const server = new Server(
     { name: 'slackwire-mcp', version: '0.1.0' },
@@ -145,6 +148,10 @@ export function createMcpServer(
     const { name, arguments: args } = req.params;
     const a = (args ?? {}) as Record<string, string>;
     log(`tools/call ${name}`);
+
+    if (!slackClient || !resolver) {
+      return toolError(NO_TOKEN_MESSAGE);
+    }
 
     if (name === 'post_card') {
       const channel = (await resolver.resolveChannel(a['channel']!)) ?? a['channel']!;

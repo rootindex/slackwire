@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { SlackClient, Resolver } from '@slackwire/core';
-import { createMcpServer } from './server.js';
+import { createMcpServer, NO_TOKEN_MESSAGE } from './server.js';
 
 function makeMockClient(): SlackClient {
   return {
@@ -25,8 +25,8 @@ function makeMockResolver(channelMap: Record<string, string> = {}): Resolver {
 }
 
 async function createTestPair(
-  slackClient: SlackClient,
-  resolver: Resolver,
+  slackClient: SlackClient | null,
+  resolver: Resolver | null,
 ): Promise<{ client: Client; cleanup: () => Promise<void> }> {
   const server = createMcpServer(slackClient, resolver);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -283,6 +283,72 @@ describe('mcp server', () => {
       await expect(
         client.callTool({ name: 'does_not_exist', arguments: {} }),
       ).rejects.toThrow(/Unknown tool/);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('constructs and uses the SlackClient when deps are present', async () => {
+    const slackClient = makeMockClient();
+    const resolver = makeMockResolver({ general: 'C123' });
+    const { client, cleanup } = await createTestPair(slackClient, resolver);
+    try {
+      await client.callTool({
+        name: 'post',
+        arguments: { channel: 'general', text: 'hi' },
+      });
+      expect(slackClient.post).toHaveBeenCalledWith(
+        expect.objectContaining({ channel: 'C123', text: 'hi' }),
+      );
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
+describe('mcp server without a token', () => {
+  it('lists all 6 tools on initialize with no slack deps', async () => {
+    const { client, cleanup } = await createTestPair(null, null);
+    try {
+      const result = await client.listTools();
+      const names = result.tools.map((t) => t.name).sort();
+      expect(names).toContain('post_card');
+      expect(names).toContain('update_card');
+      expect(names).toContain('post');
+      expect(names).toContain('react');
+      expect(names).toContain('upload');
+      expect(names).toContain('resolve');
+      expect(names).toHaveLength(6);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('returns a clean token error when a slack-backed tool is invoked', async () => {
+    const { client, cleanup } = await createTestPair(null, null);
+    try {
+      const result = await client.callTool({
+        name: 'post',
+        arguments: { channel: 'general', text: 'hi' },
+      });
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content[0]!.text).toBe(NO_TOKEN_MESSAGE);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('returns the token error for resolve too, without throwing', async () => {
+    const { client, cleanup } = await createTestPair(null, null);
+    try {
+      const result = await client.callTool({
+        name: 'resolve',
+        arguments: { name: 'general', type: 'channel' },
+      });
+      expect(result.isError).toBe(true);
+      const content = result.content as Array<{ type: string; text: string }>;
+      expect(content[0]!.text).toBe(NO_TOKEN_MESSAGE);
     } finally {
       await cleanup();
     }
