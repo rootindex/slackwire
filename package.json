@@ -9,6 +9,11 @@
     "node": ">=20",
     "pnpm": ">=9"
   },
+  "pnpm": {
+    "auditConfig": {
+      "ignoreGhsas": ["GHSA-fx2h-pf6j-xcff"]
+    }
+  },
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",

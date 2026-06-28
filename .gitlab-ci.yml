@@ -216,8 +216,10 @@ guard:commit-email:
 # GitLab security license, so it works on any tier.
 audit:dependencies:
   stage: test
-  # allow_failure: residual transitive vite GHSA-fx2h-pf6j-xcff advisory has no available fix.
-  allow_failure: true
+  # Blocking gate. The single ignored advisory (GHSA-fx2h-pf6j-xcff) is a vite
+  # advisory pulled transitively by vitest; vite is a DEV-only dependency, never
+  # shipped in a published package, and has no fix without a vitest major bump.
+  # It is explicitly suppressed via pnpm.auditConfig.ignoreGhsas in package.json.
   image: node:22
   cache:
     key:
